@@ -1,0 +1,24 @@
+[
+  {
+    "shipmentId": "shp_001",
+    "name": "부산-LA 자동차 부품 1차",
+    "originPort": "Busan",
+    "destinationPort": "Los Angeles",
+    "cargoReadyDate": "2026-07-15",
+    "dueDate": "2026-08-03",
+    "containerType": "FCL",
+    "incoterms": "FOB",
+    "status": "QUOTE_RECEIVED"
+  },
+  {
+    "shipmentId": "shp_002",
+    "name": "부산-두바이 기계부품 긴급 선적",
+    "originPort": "Busan",
+    "destinationPort": "Jebel Ali",
+    "cargoReadyDate": "2026-07-17",
+    "dueDate": "2026-08-10",
+    "containerType": "LCL",
+    "incoterms": "CIF",
+    "status": "REGISTERED"
+  }
+]

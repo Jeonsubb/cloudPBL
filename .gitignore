@@ -1,0 +1,36 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.vite/
+
+# AWS / SAM
+.aws-sam/
+samconfig.toml
+cdk.out/
+
+# Logs
+*.log
+
+# Local artifacts
+tmp/
+uploads/
+reports/
