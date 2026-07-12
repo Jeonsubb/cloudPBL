@@ -1,0 +1,1678 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PortPulse Screen Wireframes</title>
+    <style>
+      :root {
+        --bg: #f4f7fa;
+        --surface: #ffffff;
+        --surface-2: #f8fbfd;
+        --ink: #142033;
+        --muted: #667085;
+        --line: #d8e2ea;
+        --nav: #0f2638;
+        --nav-2: #17364d;
+        --teal: #087f7a;
+        --blue: #2563eb;
+        --amber: #b7791f;
+        --red: #c2410c;
+        --green: #188038;
+        --shadow: 0 16px 40px rgba(20, 32, 51, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background: var(--bg);
+        font-family:
+          Inter,
+          Pretendard,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      .app-shell {
+        display: grid;
+        min-height: 100vh;
+        grid-template-columns: 272px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 22px 18px;
+        color: #e7f1f7;
+        background: linear-gradient(180deg, var(--nav), #091b2b);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      .mark {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border-radius: 8px;
+        background: var(--teal);
+        font-weight: 900;
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 18px;
+      }
+
+      .brand span {
+        color: #a8bdcc;
+        font-size: 12px;
+      }
+
+      .mode-card {
+        margin: 18px 0;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .mode-card span {
+        display: block;
+        color: #a8bdcc;
+        font-size: 12px;
+      }
+
+      .mode-card strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 14px;
+      }
+
+      .screen-nav {
+        display: grid;
+        gap: 7px;
+      }
+
+      .screen-nav button {
+        display: grid;
+        grid-template-columns: 26px 1fr;
+        gap: 10px;
+        align-items: center;
+        width: 100%;
+        min-height: 42px;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: 8px;
+        color: #dce9f2;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .screen-nav button:hover,
+      .screen-nav button.active {
+        background: var(--nav-2);
+      }
+
+      .nav-index {
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        border-radius: 6px;
+        color: #b9d3df;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .screen-nav button.active .nav-index {
+        color: white;
+        background: var(--teal);
+      }
+
+      .nav-label strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .nav-label span {
+        display: block;
+        margin-top: 2px;
+        color: #9fb6c5;
+        font-size: 11px;
+      }
+
+      .sidebar-note {
+        margin-top: 18px;
+        padding: 13px;
+        border-radius: 8px;
+        background: rgba(8, 127, 122, 0.16);
+        color: #ccefed;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .workspace {
+        min-width: 0;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 72px;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(244, 247, 250, 0.92);
+        backdrop-filter: blur(14px);
+      }
+
+      .topbar h1 {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: 0;
+      }
+
+      .topbar p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .top-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        justify-content: flex-end;
+      }
+
+      .btn,
+      .icon-btn,
+      .select {
+        min-height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 13px;
+        color: var(--ink);
+        cursor: pointer;
+        font-weight: 800;
+      }
+
+      .btn.primary {
+        border-color: var(--teal);
+        color: white;
+        background: var(--teal);
+      }
+
+      .btn.blue {
+        border-color: var(--blue);
+        color: white;
+        background: var(--blue);
+      }
+
+      .btn.warning {
+        border-color: #f2d4a5;
+        color: #7a3e00;
+        background: #fff7e6;
+      }
+
+      .icon-btn {
+        width: 38px;
+        cursor: pointer;
+      }
+
+      .select {
+        padding: 0 11px;
+        color: var(--ink);
+      }
+
+      .screen {
+        display: none;
+        padding: 24px;
+      }
+
+      .screen.active {
+        display: block;
+      }
+
+      .screen-frame {
+        max-width: 1420px;
+        margin: 0 auto;
+      }
+
+      .screen-title {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .screen-title h2 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: 0;
+      }
+
+      .screen-title p {
+        max-width: 760px;
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .meta-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: white;
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 18px 18px 0;
+      }
+
+      .panel-header h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .panel-header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .panel-body {
+        padding: 18px;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .layout-main-rail {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) 380px;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .hero-service {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(420px, 0.95fr);
+        gap: 22px;
+        align-items: stretch;
+        min-height: 530px;
+      }
+
+      .hero-copy {
+        display: grid;
+        align-content: center;
+        padding: 42px;
+        border-radius: 8px;
+        color: white;
+        background:
+          linear-gradient(135deg, rgba(15, 38, 56, 0.94), rgba(8, 127, 122, 0.82)),
+          linear-gradient(90deg, #0f2638, #087f7a);
+      }
+
+      .hero-copy h2 {
+        max-width: 760px;
+        margin: 0;
+        font-size: 42px;
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+
+      .hero-copy p {
+        max-width: 680px;
+        margin: 18px 0 0;
+        color: rgba(255, 255, 255, 0.84);
+        font-size: 17px;
+        line-height: 1.7;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 26px;
+      }
+
+      .hero-actions .btn {
+        min-height: 44px;
+      }
+
+      .dashboard-preview {
+        display: grid;
+        gap: 14px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        box-shadow: var(--shadow);
+      }
+
+      .preview-alert {
+        padding: 18px;
+        border-radius: 8px;
+        color: #5b3300;
+        background: #fff5dc;
+      }
+
+      .preview-alert span,
+      .label {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        padding: 0 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .preview-alert span {
+        color: #7a3e00;
+        background: #ffe2a7;
+      }
+
+      .preview-alert strong {
+        display: block;
+        margin: 12px 0 8px;
+        font-size: 22px;
+      }
+
+      .preview-alert p {
+        margin: 0;
+        line-height: 1.55;
+      }
+
+      .metric-card {
+        min-height: 120px;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface-2);
+      }
+
+      .metric-card span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .metric-card strong {
+        display: block;
+        margin-top: 10px;
+        font-size: 26px;
+      }
+
+      .metric-card small {
+        display: block;
+        margin-top: 6px;
+        color: var(--green);
+        font-weight: 800;
+      }
+
+      .metric-card.risk small {
+        color: var(--red);
+      }
+
+      .data-source-row {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .source-box {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .source-box strong {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      .source-box span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .login-card {
+        max-width: 980px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 380px;
+        overflow: hidden;
+      }
+
+      .login-intro {
+        padding: 34px;
+        background: #f8fbfd;
+      }
+
+      .login-intro h3 {
+        margin: 0;
+        font-size: 28px;
+      }
+
+      .login-intro p {
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .login-form {
+        padding: 34px;
+        background: white;
+      }
+
+      .field {
+        display: grid;
+        gap: 7px;
+        margin-bottom: 14px;
+      }
+
+      .field label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .field input,
+      .field select,
+      .field textarea {
+        width: 100%;
+        min-height: 42px;
+        padding: 0 11px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .field textarea {
+        min-height: 96px;
+        padding-top: 10px;
+        resize: vertical;
+      }
+
+      .dashboard-summary {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) 300px;
+        gap: 18px;
+      }
+
+      .decision-card {
+        padding: 20px;
+        border: 1px solid #f1d09b;
+        border-radius: 8px;
+        background: #fff8e9;
+      }
+
+      .decision-card h3 {
+        margin: 12px 0 8px;
+        font-size: 28px;
+      }
+
+      .decision-card p {
+        margin: 0;
+        color: #604820;
+        line-height: 1.6;
+      }
+
+      .score-panel {
+        padding: 20px;
+        border-radius: 8px;
+        color: white;
+        background: linear-gradient(145deg, #a1430f, #c2410c);
+      }
+
+      .score-panel span {
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .score-number {
+        margin: 8px 0;
+        font-size: 64px;
+        font-weight: 900;
+        line-height: 1;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 13px 14px;
+        border-top: 1px solid var(--line);
+        text-align: left;
+        vertical-align: middle;
+        font-size: 14px;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        padding: 0 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .status.high {
+        color: #9a3412;
+        background: #ffedd5;
+      }
+
+      .status.medium {
+        color: #854d0e;
+        background: #fef3c7;
+      }
+
+      .status.low {
+        color: #166534;
+        background: #dcfce7;
+      }
+
+      .status.info {
+        color: #1d4ed8;
+        background: #dbeafe;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .form-grid .wide {
+        grid-column: span 2;
+      }
+
+      .step-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .step-item {
+        display: grid;
+        grid-template-columns: 32px 1fr;
+        gap: 12px;
+        align-items: start;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .step-no {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border-radius: 8px;
+        color: white;
+        background: var(--teal);
+        font-weight: 900;
+      }
+
+      .step-item strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .step-item span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .upload-zone {
+        display: grid;
+        min-height: 220px;
+        place-items: center;
+        padding: 24px;
+        border: 2px dashed #b8c8d8;
+        border-radius: 8px;
+        background: #f8fbfd;
+        text-align: center;
+      }
+
+      .upload-zone strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 20px;
+      }
+
+      .upload-zone p {
+        max-width: 460px;
+        margin: 0 auto 16px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .extracted-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .extracted-item {
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .extracted-item span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .extracted-item strong {
+        display: block;
+        margin-top: 6px;
+      }
+
+      .analysis-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+        gap: 18px;
+      }
+
+      .recommendation-box {
+        padding: 24px;
+        border: 1px solid #f1d09b;
+        border-radius: 8px;
+        background: #fff8e9;
+      }
+
+      .recommendation-box h3 {
+        margin: 12px 0 10px;
+        font-size: 30px;
+      }
+
+      .recommendation-box p {
+        color: #604820;
+        line-height: 1.65;
+      }
+
+      .reason-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .reason-item {
+        padding: 13px;
+        border-left: 4px solid var(--teal);
+        border-radius: 8px;
+        background: #f5fbfa;
+      }
+
+      .reason-item strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .reason-item span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .chat-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 18px;
+      }
+
+      .chat-window {
+        display: grid;
+        gap: 12px;
+        min-height: 560px;
+        align-content: start;
+        padding: 18px;
+        background: #f8fbfd;
+      }
+
+      .message {
+        max-width: 78%;
+        padding: 13px 14px;
+        border-radius: 8px;
+        line-height: 1.55;
+        font-size: 14px;
+      }
+
+      .message.user {
+        justify-self: end;
+        color: #153057;
+        background: #dbeafe;
+      }
+
+      .message.ai {
+        justify-self: start;
+        background: white;
+        border: 1px solid var(--line);
+      }
+
+      .chat-composer {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 14px;
+        border-top: 1px solid var(--line);
+      }
+
+      .chat-composer input {
+        min-width: 0;
+        min-height: 42px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .quick-question {
+        display: grid;
+        gap: 10px;
+      }
+
+      .quick-question button {
+        width: 100%;
+        padding: 11px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        color: var(--ink);
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .toggle-row strong {
+        display: block;
+      }
+
+      .toggle-row span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .toggle {
+        position: relative;
+        flex: 0 0 auto;
+        width: 44px;
+        height: 26px;
+        border-radius: 999px;
+        background: #cbd5e1;
+      }
+
+      .toggle::after {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: white;
+        content: "";
+      }
+
+      .toggle.on {
+        background: var(--teal);
+      }
+
+      .toggle.on::after {
+        left: 22px;
+      }
+
+      .wire-note {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border: 1px solid #bfd9d7;
+        border-radius: 8px;
+        color: #0f5c58;
+        background: #eefaf8;
+        line-height: 1.6;
+      }
+
+      .toast {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        display: none;
+        max-width: 340px;
+        padding: 13px 15px;
+        border: 1px solid #b7e1dd;
+        border-radius: 8px;
+        background: white;
+        box-shadow: var(--shadow);
+        color: var(--teal);
+        font-weight: 800;
+      }
+
+      .toast.show {
+        display: block;
+      }
+
+      @media (max-width: 1200px) {
+        .app-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+        }
+
+        .screen-nav {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .hero-service,
+        .layout-main-rail,
+        .dashboard-summary,
+        .analysis-hero,
+        .chat-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .topbar,
+        .screen-title {
+          display: grid;
+        }
+
+        .screen,
+        .topbar {
+          padding: 16px;
+        }
+
+        .grid-2,
+        .grid-3,
+        .grid-4,
+        .form-grid,
+        .extracted-grid,
+        .data-source-row,
+        .login-card {
+          grid-template-columns: 1fr;
+        }
+
+        .form-grid .wide {
+          grid-column: span 1;
+        }
+
+        .hero-copy {
+          padding: 26px;
+        }
+
+        .hero-copy h2 {
+          font-size: 32px;
+        }
+
+        table {
+          display: block;
+          overflow-x: auto;
+          white-space: nowrap;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .screen-nav {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-copy h2 {
+          font-size: 27px;
+        }
+
+        .message {
+          max-width: 92%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="mark">P</div>
+          <div>
+            <strong>PortPulse</strong>
+            <span>Screen Wireframes</span>
+          </div>
+        </div>
+
+        <div class="mode-card">
+          <span>프로토타입 범위</span>
+          <strong>8개 화면 단위 설계</strong>
+        </div>
+
+        <nav class="screen-nav" aria-label="화면 목록">
+          <button class="active" type="button" data-screen="landing">
+            <span class="nav-index">01</span>
+            <span class="nav-label"><strong>랜딩</strong><span>공개 시장 대시보드</span></span>
+          </button>
+          <button type="button" data-screen="login">
+            <span class="nav-index">02</span>
+            <span class="nav-label"><strong>진입</strong><span>데모/로그인 선택</span></span>
+          </button>
+          <button type="button" data-screen="dashboard">
+            <span class="nav-index">03</span>
+            <span class="nav-label"><strong>메인</strong><span>회사별 대시보드</span></span>
+          </button>
+          <button type="button" data-screen="shipment">
+            <span class="nav-index">04</span>
+            <span class="nav-label"><strong>등록</strong><span>선적 기준값 입력</span></span>
+          </button>
+          <button type="button" data-screen="upload">
+            <span class="nav-index">05</span>
+            <span class="nav-label"><strong>업로드</strong><span>견적서 추출 확인</span></span>
+          </button>
+          <button type="button" data-screen="analysis">
+            <span class="nav-index">06</span>
+            <span class="nav-label"><strong>분석</strong><span>부킹 타이밍 상세</span></span>
+          </button>
+          <button type="button" data-screen="chat">
+            <span class="nav-index">07</span>
+            <span class="nav-label"><strong>챗봇</strong><span>Bedrock 근거 설명</span></span>
+          </button>
+          <button type="button" data-screen="alerts">
+            <span class="nav-index">08</span>
+            <span class="nav-label"><strong>알림</strong><span>Push 채널 설정</span></span>
+          </button>
+        </nav>
+
+        <div class="sidebar-note">
+          각 화면은 실제 React 구현 전 화면 구조와 데이터 배치를 확인하기 위한 와이어프레임입니다.
+        </div>
+      </aside>
+
+      <div class="workspace">
+        <header class="topbar">
+          <div>
+            <h1 id="top-title">랜딩 / 공개 시장 대시보드</h1>
+            <p id="top-subtitle">로그인 전에도 PortPulse가 보는 데이터와 판단 예시를 보여줍니다.</p>
+          </div>
+          <div class="top-actions">
+            <select class="select" aria-label="항로 선택">
+              <option>부산 → 미주서안</option>
+              <option>부산 → 북유럽</option>
+              <option>부산 → 동남아</option>
+            </select>
+            <button class="btn" type="button" data-toast="와이어프레임 화면을 새로고침한 상태로 가정합니다.">새로고침</button>
+            <button class="btn primary" type="button" data-toast="데모 회사 화면으로 진입하는 CTA입니다.">데모 보기</button>
+          </div>
+        </header>
+
+        <main>
+          <section class="screen active" id="screen-landing">
+            <div class="screen-frame">
+              <div class="hero-service">
+                <div class="hero-copy">
+                  <span class="meta-pill">Landing Screen</span>
+                  <h2>부산발 선적의 부킹 타이밍을 감이 아니라 데이터로 판단합니다.</h2>
+                  <p>
+                    PortPulse는 KCCI, SCFI, 환율, 뉴스 이벤트를 결합해 중소 수출기업이 지금
+                    부킹할지, 기다릴지, 물량을 조정할지 판단하도록 돕습니다.
+                  </p>
+                  <div class="hero-actions">
+                    <button class="btn primary" type="button" data-toast="데모 대시보드로 이동합니다.">데모 대시보드 보기</button>
+                    <button class="btn" type="button" data-toast="선적 분석 시작 CTA입니다.">내 선적 분석 시작</button>
+                  </div>
+                </div>
+
+                <div class="dashboard-preview">
+                  <div class="preview-alert">
+                    <span>샘플 부킹 추천</span>
+                    <strong>8월 3주차 미주서안 선적은 2주 내 부킹 확정 권고</strong>
+                    <p>
+                      예산 $2,800/FEU 대비 예상 운임 +18%, 월 4 FEU 기준 약 $2,016 초과
+                      가능성이 있습니다.
+                    </p>
+                  </div>
+                  <div class="grid-2">
+                    <div class="metric-card risk">
+                      <span>KCCI 부산-USWC</span>
+                      <strong>2,340p</strong>
+                      <small>전주 대비 +7.8%</small>
+                    </div>
+                    <div class="metric-card risk">
+                      <span>SCFI 보조지표</span>
+                      <strong>2,506p</strong>
+                      <small>4주 평균 상승</small>
+                    </div>
+                    <div class="metric-card">
+                      <span>원/달러 환율</span>
+                      <strong>1,380</strong>
+                      <small>전일 대비 -0.4%</small>
+                    </div>
+                    <div class="metric-card risk">
+                      <span>뉴스 이벤트</span>
+                      <strong>3건</strong>
+                      <small>항만 혼잡·유가·홍해</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wire-note">
+                랜딩은 마케팅 문구만 있는 화면이 아니라, 공개 시장 데이터와 샘플 판단 결과를 함께 보여주는
+                서비스 프리뷰 화면으로 구성합니다.
+              </div>
+
+              <div class="panel" style="margin-top: 18px">
+                <div class="panel-header">
+                  <div>
+                    <h3>데이터 출처와 역할</h3>
+                    <p>로그인 전에는 공개 가능한 시장 데이터와 샘플 추천만 표시합니다.</p>
+                  </div>
+                </div>
+                <div class="panel-body">
+                  <div class="data-source-row">
+                    <div class="source-box"><strong>KCCI</strong><span>부산발 운임 판단의 메인 데이터</span></div>
+                    <div class="source-box"><strong>SCFI</strong><span>글로벌 운임 방향성 보조</span></div>
+                    <div class="source-box"><strong>ECOS</strong><span>환율과 거시 지표 해석</span></div>
+                    <div class="source-box"><strong>관세청</strong><span>품목/물동량 성수기 신호</span></div>
+                    <div class="source-box"><strong>뉴스</strong><span>돌발 이벤트와 항로 영향</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="screen-login">
+            <div class="screen-frame">
+              <div class="screen-title">
+                <div>
+                  <h2>데모 진입 / 로그인</h2>
+                  <p>발표에서는 데모 회사로 즉시 진입하고, 운영 구조에서는 Cognito로 회사별 데이터를 분리합니다.</p>
+                </div>
+                <span class="meta-pill">Public → Private 전환</span>
+              </div>
+
+              <div class="panel login-card">
+                <div class="login-intro">
+                  <h3>부산 수출기업 데모로 바로 시작</h3>
+                  <p>
+                    실제 서비스에서는 사용자 인증 후 회사별 선적 데이터에 접근합니다. MVP 발표에서는 데모
+                    회사를 선택해 전체 플로우를 빠르게 시연합니다.
+                  </p>
+                  <div class="step-list">
+                    <div class="step-item"><span class="step-no">1</span><div><strong>공개 데이터 확인</strong><span>랜딩에서 시장 데이터와 샘플 판단을 먼저 확인합니다.</span></div></div>
+                    <div class="step-item"><span class="step-no">2</span><div><strong>회사 컨텍스트 선택</strong><span>회사별 선적, 예산, 알림 데이터가 분리됩니다.</span></div></div>
+                    <div class="step-item"><span class="step-no">3</span><div><strong>개인화 분석 시작</strong><span>내 선적 기준으로 부킹 타이밍을 계산합니다.</span></div></div>
+                  </div>
+                </div>
+                <div class="login-form">
+                  <div class="field">
+                    <label for="email">이메일</label>
+                    <input id="email" value="demo@portpulse.kr" />
+                  </div>
+                  <div class="field">
+                    <label for="company">회사</label>
+                    <select id="company">
+                      <option>부산 수출기업 데모</option>
+                      <option>수산가공품 수출 데모</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="role">권한</label>
+                    <select id="role">
+                      <option>물류 담당자</option>
+                      <option>관리자</option>
+                    </select>
+                  </div>
+                  <button class="btn primary" style="width: 100%; justify-content: center" type="button" data-toast="데모 회사 대시보드로 진입합니다.">데모로 시작</button>
+                  <button class="btn" style="width: 100%; justify-content: center; margin-top: 10px" type="button" data-toast="Cognito 로그인 연동 예정입니다.">Cognito 로그인</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="screen-dashboard">
+            <div class="screen-frame">
+              <div class="screen-title">
+                <div>
+                  <h2>메인 대시보드</h2>
+                  <p>로그인 후 회사별 선적 데이터와 공개 시장 데이터를 결합해 오늘 가장 중요한 부킹 판단을 보여줍니다.</p>
+                </div>
+                <span class="meta-pill">Private Dashboard</span>
+              </div>
+
+              <div class="layout-main-rail">
+                <div class="stack">
+                  <div class="panel">
+                    <div class="panel-body dashboard-summary">
+                      <div class="decision-card">
+                        <span class="label" style="color:#7a3e00;background:#ffe2a7">오늘의 부킹 타이밍</span>
+                        <h3>자동차 부품 1차는 2주 내 부킹 확정 권고</h3>
+                        <p>
+                          예산 대비 초과 가능성이 높고 선적 예정 주차가 가까워졌습니다. 포워더에게 선복 확보와
+                          견적 유효기간 연장을 우선 확인하세요.
+                        </p>
+                      </div>
+                      <div class="score-panel">
+                        <span>Risk Score</span>
+                        <div class="score-number">82</div>
+                        <strong>HIGH</strong>
+                        <p>예산 초과, 운임 상승, 일정 리스크가 동시에 감지되었습니다.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="grid-4">
+                    <div class="metric-card risk"><span>KCCI</span><strong>2,340p</strong><small>+7.8%</small></div>
+                    <div class="metric-card risk"><span>SCFI</span><strong>2,506p</strong><small>상승</small></div>
+                    <div class="metric-card"><span>환율</span><strong>1,380</strong><small>-0.4%</small></div>
+                    <div class="metric-card risk"><span>이벤트</span><strong>3건</strong><small>주의</small></div>
+                  </div>
+
+                  <div class="panel">
+                    <div class="panel-header">
+                      <div>
+                        <h3>진행 중 선적</h3>
+                        <p>위험도가 높은 선적을 우선 정렬합니다.</p>
+                      </div>
+                      <button class="btn primary" type="button" data-toast="선적 등록 화면으로 이동합니다.">선적 등록</button>
+                    </div>
+                    <div class="panel-body">
+                      <table>
+                        <thead>
+                          <tr><th>선적</th><th>항로</th><th>예정</th><th>예산</th><th>위험도</th><th>추천</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr><td>자동차 부품 1차</td><td>Busan → LA</td><td>2026-W33</td><td>$2,800</td><td><span class="status high">HIGH</span></td><td>2주 내 부킹</td></tr>
+                          <tr><td>수산가공품 정기</td><td>Busan → Rotterdam</td><td>2026-W36</td><td>$3,100</td><td><span class="status medium">MEDIUM</span></td><td>관찰</td></tr>
+                          <tr><td>생활용품 샘플</td><td>Busan → Singapore</td><td>2026-W31</td><td>$1,250</td><td><span class="status low">LOW</span></td><td>정상</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <aside class="stack">
+                  <div class="panel">
+                    <div class="panel-header">
+                      <div>
+                        <h3>AI 아침 브리핑</h3>
+                        <p>매일 09:00 생성</p>
+                      </div>
+                    </div>
+                    <div class="panel-body">
+                      <p style="line-height:1.65;color:var(--muted);margin-top:0">
+                        미주서안 KCCI가 전주 대비 상승했습니다. 자동차 부품 1차 선적은 예산 초과 가능성이 높아
+                        포워더 확인이 필요합니다.
+                      </p>
+                      <button class="btn blue" type="button" data-toast="AI 브리핑 상세로 이동합니다.">브리핑 열기</button>
+                    </div>
+                  </div>
+                  <div class="panel">
+                    <div class="panel-header">
+                      <div>
+                        <h3>Push 상태</h3>
+                        <p>위험 선적 경보 채널</p>
+                      </div>
+                    </div>
+                    <div class="panel-body stack">
+                      <div class="toggle-row"><div><strong>텔레그램</strong><span>연결됨</span></div><span class="toggle on"></span></div>
+                      <div class="toggle-row"><div><strong>카카오 알림톡</strong><span>확장 예정</span></div><span class="toggle"></span></div>
+                      <div class="toggle-row"><div><strong>이메일</strong><span>브리핑 발송</span></div><span class="toggle on"></span></div>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="screen-shipment">
+            <div class="screen-frame">
+              <div class="screen-title">
+                <div>
+                  <h2>선적 등록</h2>
+                  <p>화주가 즉시 아는 값만 입력해 개인화 분석의 기준을 만듭니다.</p>
+                </div>
+                <span class="meta-pill">Input Hub</span>
+              </div>
+
+              <div class="layout-main-rail">
+                <div class="panel">
+                  <div class="panel-header">
+                    <div>
+                      <h3>선적 기준값</h3>
+                      <p>예산단가와 물량은 PortPulse 차별점인 초과 비용 계산에 사용됩니다.</p>
+                    </div>
+                  </div>
+                  <div class="panel-body">
+                    <div class="form-grid">
+                      <div class="field wide"><label>선적명</label><input value="자동차 부품 1차" /></div>
+                      <div class="field"><label>Incoterms</label><select><option>CIF</option><option>CFR</option><option>FOB</option></select></div>
+                      <div class="field"><label>출발 항만</label><input value="Busan" /></div>
+                      <div class="field"><label>도착 권역</label><select><option>미주서안</option><option>북유럽</option><option>동남아</option></select></div>
+                      <div class="field"><label>도착 항만</label><input value="Los Angeles" /></div>
+                      <div class="field"><label>선적 예정 주차</label><input value="2026-W33" /></div>
+                      <div class="field"><label>화물 준비일</label><input value="2026-08-10" /></div>
+                      <div class="field"><label>납기일</label><input value="2026-09-05" /></div>
+                      <div class="field"><label>물량</label><input value="4 FEU" /></div>
+                      <div class="field"><label>기준 예산단가</label><input value="$2,800 / FEU" /></div>
+                      <div class="field"><label>품목</label><input value="자동차 부품" /></div>
+                      <div class="field"><label>HS 코드</label><input value="8708" /></div>
+                    </div>
+                    <div class="top-actions" style="margin-top:18px;justify-content:flex-start">
+                      <button class="btn primary" type="button" data-toast="선적 기준값을 저장합니다.">저장 후 분석</button>
+                      <button class="btn" type="button" data-toast="견적서 업로드 단계로 이동합니다.">견적서 업로드</button>
+                    </div>
+                  </div>
+                </div>
+
+                <aside class="panel">
+                  <div class="panel-header">
+                    <div>
+                      <h3>입력값 사용처</h3>
+                      <p>각 입력값이 어떤 분석에 쓰이는지 보여줍니다.</p>
+                    </div>
+                  </div>
+                  <div class="panel-body step-list">
+                    <div class="step-item"><span class="step-no">1</span><div><strong>항로</strong><span>KCCI/SCFI 항로 매칭에 사용</span></div></div>
+                    <div class="step-item"><span class="step-no">2</span><div><strong>예산단가</strong><span>예상 운임과 비교해 초과율 계산</span></div></div>
+                    <div class="step-item"><span class="step-no">3</span><div><strong>물량</strong><span>총 초과 예상액 계산</span></div></div>
+                    <div class="step-item"><span class="step-no">4</span><div><strong>납기일</strong><span>ETA와 비교해 일정 리스크 판단</span></div></div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="screen-upload">
+            <div class="screen-frame">
+              <div class="screen-title">
+                <div>
+                  <h2>견적서 업로드 / 추출 확인</h2>
+                  <p>S3 Presigned URL로 원본을 업로드하고, 파싱된 값을 사용자가 확인합니다.</p>
+                </div>
+                <span class="meta-pill">S3 + Lambda Parsing</span>
+              </div>
+
+              <div class="grid-2">
+                <div class="panel">
+                  <div class="panel-body">
+                    <div class="upload-zone">
+                      <div>
+                        <strong>견적서 또는 엑셀 파일 업로드</strong>
+                        <p>xlsx, csv, 텍스트 PDF를 우선 지원합니다. 스캔본은 Textract 확장 영역입니다.</p>
+                        <button class="btn primary" type="button" data-toast="파일 선택 창을 여는 버튼입니다.">파일 선택</button>
+                      </div>
+                    </div>
+                    <div class="wire-note">
+                      MVP에서는 샘플 파일을 사용하고, 실제 구현에서는 업로드 URL 발급 후 S3에 직접 저장합니다.
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel">
+                  <div class="panel-header">
+                    <div>
+                      <h3>추출 결과 확인</h3>
+                      <p>잘못 추출된 값은 사용자가 수정할 수 있어야 합니다.</p>
+                    </div>
+                    <span class="status info">PARSED</span>
+                  </div>
+                  <div class="panel-body">
+                    <div class="extracted-grid">
+                      <div class="extracted-item"><span>포워더</span><strong>ABC Logistics</strong></div>
+                      <div class="extracted-item"><span>기본 운임</span><strong>$2,950 / FEU</strong></div>
+                      <div class="extracted-item"><span>부대비용</span><strong>$180 / FEU</strong></div>
+                      <div class="extracted-item"><span>총 비용</span><strong>$3,130 / FEU</strong></div>
+                      <div class="extracted-item"><span>견적 유효기간</span><strong>2026-07-20</strong></div>
+                      <div class="extracted-item"><span>ETD / ETA</span><strong>2026-08-18 / 2026-09-02</strong></div>
+                    </div>
+                    <div class="top-actions" style="margin-top:18px;justify-content:flex-start">
+                      <button class="btn primary" type="button" data-toast="추출값으로 분석을 실행합니다.">이 값으로 분석</button>
+                      <button class="btn" type="button" data-toast="추출값 수정 모드입니다.">수정</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="screen-analysis">
+            <div class="screen-frame">
+              <div class="screen-title">
+                <div>
+                  <h2>분석 결과 상세</h2>
+                  <p>부킹 타이밍 추천, 예산 초과액, 일정 리스크, 근거 데이터를 한 화면에서 확인합니다.</p>
+                </div>
+                <span class="meta-pill">Decision Detail</span>
+              </div>
+
+              <div class="analysis-hero">
+                <div class="recommendation-box">
+                  <span class="label" style="color:#7a3e00;background:#ffe2a7">BOOK_WITHIN_2_WEEKS</span>
+                  <h3>2주 내 부킹 확정을 권고합니다.</h3>
+                  <p>
+                    예산 $2,800/FEU 대비 현재 견적 기준 총 비용이 $3,130/FEU입니다. 월 4 FEU 기준 약
+                    $1,320 초과이며, KCCI 단기 상승과 항만 혼잡 뉴스가 겹쳐 추가 상승 가능성이 있습니다.
+                  </p>
+                  <div class="top-actions" style="margin-top:20px;justify-content:flex-start">
+                    <button class="btn primary" type="button" data-toast="포워더 확인 체크리스트를 엽니다.">포워더 확인</button>
+                    <button class="btn" type="button" data-toast="AI에게 근거를 질문합니다.">AI에게 질문</button>
+                    <button class="btn warning" type="button" data-toast="위험 선적 경보를 발송합니다.">알림 발송</button>
+                  </div>
+                </div>
+                <div class="score-panel">
+                  <span>Risk Score</span>
+                  <div class="score-number">82</div>
+                  <strong>HIGH</strong>
+                  <p>예산 초과 + 운임 상승 + 일정 임박</p>
+                </div>
+              </div>
+
+              <div class="grid-3" style="margin-top:18px">
+                <div class="metric-card risk"><span>예산 초과율</span><strong>18%</strong><small>$1,320 초과</small></div>
+                <div class="metric-card risk"><span>견적 유효기간</span><strong>7일</strong><small>연장 확인 필요</small></div>
+                <div class="metric-card risk"><span>납기 여유</span><strong>3일</strong><small>일정 리스크 높음</small></div>
+              </div>
+
+              <div class="grid-2" style="margin-top:18px">
+                <div class="panel">
+                  <div class="panel-header"><div><h3>적용된 리스크 근거</h3><p>AI 설명은 이 근거만 사용합니다.</p></div></div>
+                  <div class="panel-body reason-list">
+                    <div class="reason-item"><strong>KCCI 단기 상승</strong><span>부산-미주서안 항로가 전주 대비 7.8% 상승했습니다.</span></div>
+                    <div class="reason-item"><strong>예산 초과</strong><span>견적 기준 비용이 예산단가보다 약 18% 높습니다.</span></div>
+                    <div class="reason-item"><strong>납기 여유 부족</strong><span>ETA와 납기일 차이가 3일로 완충 시간이 부족합니다.</span></div>
+                    <div class="reason-item"><strong>뉴스 이벤트</strong><span>미주 서안 항만 혼잡 뉴스가 관련 항로에 매칭되었습니다.</span></div>
+                  </div>
+                </div>
+                <div class="panel">
+                  <div class="panel-header"><div><h3>추천 행동</h3><p>사용자가 바로 수행할 수 있는 액션입니다.</p></div></div>
+                  <div class="panel-body step-list">
+                    <div class="step-item"><span class="step-no">1</span><div><strong>선복 확보 확인</strong><span>포워더에게 8월 3주차 선복 가능성을 확인합니다.</span></div></div>
+                    <div class="step-item"><span class="step-no">2</span><div><strong>견적 유효기간 연장</strong><span>현재 견적이 7일 뒤 만료되므로 연장 가능성을 문의합니다.</span></div></div>
+                    <div class="step-item"><span class="step-no">3</span><div><strong>물량 일부 선반영</strong><span>가능하다면 일부 물량을 앞당겨 성수기 상승을 피합니다.</span></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="screen-chat">
+            <div class="screen-frame">
+              <div class="screen-title">
+                <div>
+                  <h2>AI 챗봇</h2>
+                  <p>Bedrock은 점수를 새로 계산하지 않고, Lambda 룰 엔진 결과와 근거 데이터를 설명합니다.</p>
+                </div>
+                <span class="meta-pill">Amazon Bedrock</span>
+              </div>
+
+              <div class="chat-layout">
+                <div class="panel">
+                  <div class="chat-window">
+                    <div class="message user">부산-LA 8월 선적 지금 잡는 게 좋아?</div>
+                    <div class="message ai">
+                      현재 데이터 기준으로는 2주 내 부킹 확정을 권고합니다. 예산 대비 견적 비용이 높고,
+                      KCCI 단기 상승과 항만 혼잡 뉴스가 같은 항로에 매칭되었습니다.
+                    </div>
+                    <div class="message user">포워더한테 뭐라고 물어봐야 해?</div>
+                    <div class="message ai">
+                      8월 3주차 선복 확보 가능 여부, 견적 유효기간 연장 가능 여부, BAF/성수기 할증 반영 여부를
+                      우선 확인하세요.
+                    </div>
+                  </div>
+                  <div class="chat-composer">
+                    <input value="예산을 $3,000으로 올리면 위험도가 낮아져?" aria-label="질문 입력" />
+                    <button class="btn primary" type="button" data-toast="Bedrock 호출 응답 목업입니다.">전송</button>
+                  </div>
+                </div>
+                <aside class="panel">
+                  <div class="panel-header"><div><h3>빠른 질문</h3><p>실무자가 자주 묻는 질문입니다.</p></div></div>
+                  <div class="panel-body quick-question">
+                    <button type="button" data-toast="빠른 질문을 입력창에 넣습니다.">왜 위험도가 HIGH야?</button>
+                    <button type="button" data-toast="빠른 질문을 입력창에 넣습니다.">홍해 이슈가 영향 있어?</button>
+                    <button type="button" data-toast="빠른 질문을 입력창에 넣습니다.">부킹을 미루면 어떤 리스크가 있어?</button>
+                    <button type="button" data-toast="빠른 질문을 입력창에 넣습니다.">포워더에게 보낼 메일 문구 써줘</button>
+                  </div>
+                  <div class="panel-body" style="padding-top:0">
+                    <div class="wire-note">
+                      챗봇 context에는 선적, 견적, 시장 지표, 적용된 룰, 출처 ID가 함께 전달됩니다.
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="screen-alerts">
+            <div class="screen-frame">
+              <div class="screen-title">
+                <div>
+                  <h2>알림 설정</h2>
+                  <p>매일 아침 브리핑과 위험 선적 경보를 받을 채널과 기준을 설정합니다.</p>
+                </div>
+                <span class="meta-pill">Push Delivery</span>
+              </div>
+
+              <div class="layout-main-rail">
+                <div class="stack">
+                  <div class="panel">
+                    <div class="panel-header"><div><h3>알림 채널</h3><p>MVP는 텔레그램을 우선 사용하고 카카오는 확장으로 둡니다.</p></div></div>
+                    <div class="panel-body stack">
+                      <div class="toggle-row"><div><strong>텔레그램</strong><span>위험 선적 경보와 아침 브리핑 발송</span></div><span class="toggle on"></span></div>
+                      <div class="toggle-row"><div><strong>카카오 알림톡</strong><span>템플릿 승인 이후 확장</span></div><span class="toggle"></span></div>
+                      <div class="toggle-row"><div><strong>이메일 리포트</strong><span>일일 요약과 상세 리포트 발송</span></div><span class="toggle on"></span></div>
+                    </div>
+                  </div>
+
+                  <div class="panel">
+                    <div class="panel-header"><div><h3>경보 기준</h3><p>사용자가 너무 많은 알림을 받지 않도록 기준값을 설정합니다.</p></div></div>
+                    <div class="panel-body">
+                      <div class="form-grid">
+                        <div class="field"><label>브리핑 시간</label><input value="09:00" /></div>
+                        <div class="field"><label>위험도 기준</label><select><option>HIGH 이상</option><option>MEDIUM 이상</option></select></div>
+                        <div class="field"><label>예산 초과율</label><input value="10% 이상" /></div>
+                        <div class="field"><label>초과 금액</label><input value="$1,000 이상" /></div>
+                        <div class="field"><label>견적 만료</label><input value="3일 이하" /></div>
+                        <div class="field"><label>납기 여유</label><input value="5일 이하" /></div>
+                      </div>
+                      <div class="top-actions" style="margin-top:18px;justify-content:flex-start">
+                        <button class="btn primary" type="button" data-toast="알림 설정을 저장합니다.">설정 저장</button>
+                        <button class="btn" type="button" data-toast="테스트 알림을 발송합니다.">테스트 발송</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <aside class="panel">
+                  <div class="panel-header"><div><h3>발송 메시지 미리보기</h3><p>위험 선적 경보 예시</p></div></div>
+                  <div class="panel-body">
+                    <div class="preview-alert">
+                      <span>PortPulse 위험 선적 경보</span>
+                      <strong>자동차 부품 1차 / 부산 → 미주서안</strong>
+                      <p>
+                        위험도 HIGH. 예산 $2,800/FEU 대비 예상 운임이 약 18% 높습니다.
+                        2주 내 부킹 확정을 검토하세요.
+                      </p>
+                    </div>
+                    <div class="wire-note">
+                      알림 발송 후에는 alert_logs에 채널, 메시지, 성공 여부, 오류 메시지를 저장합니다.
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">화면 액션 목업입니다.</div>
+
+    <script>
+      const screens = {
+        landing: {
+          title: "랜딩 / 공개 시장 대시보드",
+          subtitle: "로그인 전에도 PortPulse가 보는 데이터와 판단 예시를 보여줍니다."
+        },
+        login: {
+          title: "데모 진입 / 로그인",
+          subtitle: "공개 화면에서 회사별 개인화 화면으로 넘어가는 지점입니다."
+        },
+        dashboard: {
+          title: "메인 대시보드",
+          subtitle: "회사별 선적 데이터와 시장 데이터를 결합한 운영 화면입니다."
+        },
+        shipment: {
+          title: "선적 등록",
+          subtitle: "항로, 선적 예정, 물량, 예산단가를 입력하는 화면입니다."
+        },
+        upload: {
+          title: "견적서 업로드 / 추출 확인",
+          subtitle: "원본 파일을 업로드하고 파싱 결과를 확인하는 화면입니다."
+        },
+        analysis: {
+          title: "분석 결과 상세",
+          subtitle: "부킹 타이밍 추천과 근거 데이터를 보여주는 핵심 화면입니다."
+        },
+        chat: {
+          title: "AI 챗봇",
+          subtitle: "Bedrock이 선적과 시장 근거를 자연어로 설명하는 화면입니다."
+        },
+        alerts: {
+          title: "알림 설정",
+          subtitle: "매일 브리핑과 위험 선적 Push 기준을 설정합니다."
+        }
+      };
+
+      const navButtons = document.querySelectorAll(".screen-nav button");
+      const screenEls = document.querySelectorAll(".screen");
+      const topTitle = document.querySelector("#top-title");
+      const topSubtitle = document.querySelector("#top-subtitle");
+      const toast = document.querySelector("#toast");
+
+      function showToast(message) {
+        toast.textContent = message || "화면 액션 목업입니다.";
+        toast.classList.add("show");
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2200);
+      }
+
+      function activateScreen(screenId) {
+        navButtons.forEach((button) => button.classList.toggle("active", button.dataset.screen === screenId));
+        screenEls.forEach((screen) => screen.classList.toggle("active", screen.id === `screen-${screenId}`));
+        topTitle.textContent = screens[screenId].title;
+        topSubtitle.textContent = screens[screenId].subtitle;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      navButtons.forEach((button) => {
+        button.addEventListener("click", () => activateScreen(button.dataset.screen));
+      });
+
+      document.querySelectorAll("[data-toast]").forEach((item) => {
+        item.addEventListener("click", () => showToast(item.dataset.toast));
+      });
+    </script>
+  </body>
+</html>

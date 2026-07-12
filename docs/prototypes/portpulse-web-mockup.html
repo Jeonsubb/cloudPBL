@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PortPulse Web Mockup</title>
+    <style>
+      :root {
+        --ink: #172033;
+        --muted: #667085;
+        --line: #d9e2ec;
+        --panel: #ffffff;
+        --page: #f3f6f8;
+        --nav: #102a43;
+        --nav-soft: #173b57;
+        --teal: #087f7a;
+        --blue: #2563eb;
+        --amber: #c77c02;
+        --red: #c2410c;
+        --green: #188038;
+        --shadow: 0 16px 42px rgba(23, 32, 51, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background: var(--page);
+        font-family:
+          Inter,
+          Pretendard,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      .shell {
+        display: grid;
+        min-height: 100vh;
+        grid-template-columns: 248px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 22px 18px;
+        color: #e6f1f7;
+        background: linear-gradient(180deg, var(--nav), #0b1f32);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 4px 22px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border-radius: 10px;
+        background: #0ea5a0;
+        font-weight: 900;
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 18px;
+      }
+
+      .brand span,
+      .company span,
+      .nav small {
+        color: #9fb8c9;
+        font-size: 12px;
+      }
+
+      .company {
+        margin: 18px 0;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .company strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 14px;
+      }
+
+      .nav {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav button {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 12px;
+        border: 0;
+        border-radius: 8px;
+        color: #dce8f2;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .nav button.active,
+      .nav button:hover {
+        background: var(--nav-soft);
+      }
+
+      .sidebar-footer {
+        position: absolute;
+        right: 18px;
+        bottom: 22px;
+        left: 18px;
+        padding: 14px;
+        border-radius: 8px;
+        background: rgba(14, 165, 160, 0.14);
+        color: #ccefed;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .title h1 {
+        margin: 0;
+        font-size: 27px;
+        letter-spacing: 0;
+      }
+
+      .title p {
+        margin: 7px 0 0;
+        color: var(--muted);
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .select,
+      .icon-button,
+      .primary-button,
+      .ghost-button {
+        min-height: 40px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .select {
+        min-width: 210px;
+        padding: 0 12px;
+        color: var(--ink);
+      }
+
+      .icon-button {
+        width: 40px;
+        color: var(--ink);
+        cursor: pointer;
+      }
+
+      .primary-button,
+      .ghost-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 14px;
+        cursor: pointer;
+        font-weight: 800;
+      }
+
+      .primary-button {
+        border-color: var(--teal);
+        color: white;
+        background: var(--teal);
+      }
+
+      .ghost-button {
+        color: var(--ink);
+        background: white;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) 360px;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .panel {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 18px 18px 0;
+      }
+
+      .panel-header h2,
+      .panel-header h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .panel-header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .booking-alert {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 260px;
+        gap: 20px;
+        padding: 18px;
+      }
+
+      .recommendation {
+        padding: 18px;
+        border: 1px solid #f0c36d;
+        border-radius: 8px;
+        background: #fff8e8;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        padding: 0 9px;
+        border-radius: 999px;
+        color: #7a3e00;
+        background: #ffe7b3;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .recommendation h2 {
+        margin: 12px 0 8px;
+        font-size: 30px;
+        line-height: 1.2;
+      }
+
+      .recommendation p {
+        max-width: 700px;
+        margin: 0;
+        color: #594a31;
+        line-height: 1.6;
+      }
+
+      .decision-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .score-card {
+        display: grid;
+        align-content: space-between;
+        padding: 18px;
+        border-radius: 8px;
+        color: white;
+        background: linear-gradient(145deg, #b45309, #dc2626);
+      }
+
+      .score-card span {
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 13px;
+      }
+
+      .score {
+        margin: 8px 0 6px;
+        font-size: 64px;
+        font-weight: 900;
+        line-height: 1;
+      }
+
+      .score-card p {
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        padding: 0 18px 18px;
+      }
+
+      .metric {
+        min-height: 116px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfdff;
+      }
+
+      .metric span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .metric strong {
+        display: block;
+        margin: 10px 0 5px;
+        font-size: 24px;
+      }
+
+      .metric small {
+        color: var(--green);
+        font-weight: 800;
+      }
+
+      .metric.warning small {
+        color: var(--red);
+      }
+
+      .content-two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .trend-body {
+        padding: 18px;
+      }
+
+      .chart {
+        position: relative;
+        height: 210px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background:
+          linear-gradient(to top, rgba(217, 226, 236, 0.75) 1px, transparent 1px) 0 0 / 100% 52px,
+          #fbfdff;
+      }
+
+      .bar {
+        position: absolute;
+        bottom: 38px;
+        width: 24px;
+        border-radius: 6px 6px 0 0;
+        background: #56a3a6;
+      }
+
+      .bar:nth-child(1) {
+        left: 10%;
+        height: 82px;
+      }
+
+      .bar:nth-child(2) {
+        left: 23%;
+        height: 104px;
+      }
+
+      .bar:nth-child(3) {
+        left: 36%;
+        height: 126px;
+        background: #2563eb;
+      }
+
+      .bar:nth-child(4) {
+        left: 49%;
+        height: 118px;
+        background: #2563eb;
+      }
+
+      .bar:nth-child(5) {
+        left: 62%;
+        height: 92px;
+      }
+
+      .bar:nth-child(6) {
+        left: 75%;
+        height: 112px;
+        background: #c77c02;
+      }
+
+      .chart-note {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .shipment-list {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .shipment-list th,
+      .shipment-list td {
+        padding: 13px 14px;
+        border-top: 1px solid var(--line);
+        text-align: left;
+        vertical-align: middle;
+        font-size: 14px;
+      }
+
+      .shipment-list th {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+
+      .status {
+        display: inline-flex;
+        min-height: 24px;
+        align-items: center;
+        padding: 0 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .status.high {
+        color: #9a3412;
+        background: #ffedd5;
+      }
+
+      .status.medium {
+        color: #854d0e;
+        background: #fef3c7;
+      }
+
+      .status.low {
+        color: #166534;
+        background: #dcfce7;
+      }
+
+      .chat-preview {
+        padding: 18px;
+      }
+
+      .chat-message {
+        margin-bottom: 12px;
+        padding: 13px 14px;
+        border-radius: 8px;
+        line-height: 1.55;
+        font-size: 14px;
+      }
+
+      .chat-message.user {
+        margin-left: 34px;
+        color: #153057;
+        background: #eaf2ff;
+      }
+
+      .chat-message.ai {
+        margin-right: 24px;
+        background: #f4f7fb;
+      }
+
+      .chat-input {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .chat-input input {
+        min-width: 0;
+        min-height: 40px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .right-rail {
+        display: grid;
+        gap: 18px;
+      }
+
+      .briefing {
+        padding: 18px;
+      }
+
+      .briefing-date {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .briefing h2 {
+        margin: 10px 0 10px;
+        font-size: 22px;
+        line-height: 1.3;
+      }
+
+      .briefing p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .source-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .source-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #f6faf9;
+        font-size: 13px;
+      }
+
+      .source-item strong {
+        color: var(--teal);
+      }
+
+      .news-list,
+      .channel-list {
+        display: grid;
+        gap: 12px;
+        padding: 18px;
+      }
+
+      .news-item {
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .news-item:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+
+      .news-item strong {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 14px;
+      }
+
+      .news-item span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .channel {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .toggle {
+        position: relative;
+        width: 42px;
+        height: 24px;
+        border-radius: 999px;
+        background: #cbd5e1;
+      }
+
+      .toggle::after {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: white;
+        content: "";
+      }
+
+      .toggle.on {
+        background: var(--teal);
+      }
+
+      .toggle.on::after {
+        left: 22px;
+      }
+
+      .input-panel {
+        padding: 18px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .field label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .field input,
+      .field select {
+        width: 100%;
+        min-height: 40px;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+      }
+
+      .toast {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        display: none;
+        max-width: 320px;
+        padding: 13px 15px;
+        border: 1px solid #b7e1dd;
+        border-radius: 8px;
+        background: white;
+        box-shadow: var(--shadow);
+        color: var(--teal);
+        font-weight: 800;
+      }
+
+      .toast.show {
+        display: block;
+      }
+
+      @media (max-width: 1180px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+        }
+
+        .sidebar-footer {
+          position: static;
+          margin-top: 18px;
+        }
+
+        .dashboard-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .main {
+          padding: 16px;
+        }
+
+        .topbar,
+        .booking-alert,
+        .content-two,
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .top-actions {
+          flex-wrap: wrap;
+        }
+
+        .metric-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .select {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .metric-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .recommendation h2 {
+          font-size: 24px;
+        }
+
+        .shipment-list {
+          display: block;
+          overflow-x: auto;
+          white-space: nowrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="서비스 메뉴">
+        <div class="brand">
+          <div class="brand-mark">P</div>
+          <div>
+            <strong>PortPulse</strong>
+            <span>Booking Timing AI</span>
+          </div>
+        </div>
+
+        <div class="company">
+          <span>현재 회사</span>
+          <strong>부산 수출기업 데모</strong>
+        </div>
+
+        <nav class="nav">
+          <button class="active" type="button">대시보드 <small>01</small></button>
+          <button type="button">선적 관리 <small>02</small></button>
+          <button type="button">시장 데이터 <small>03</small></button>
+          <button type="button">AI 챗봇 <small>04</small></button>
+          <button type="button">알림 설정 <small>05</small></button>
+        </nav>
+
+        <div class="sidebar-footer">
+          AWS 구성: S3, API Gateway, Lambda, Aurora PostgreSQL, EventBridge, Amazon Bedrock
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="title">
+            <h1>오늘의 부킹 타이밍</h1>
+            <p>부산발 선적 건을 예산, 납기, 시장 데이터 기준으로 매일 아침 판단합니다.</p>
+          </div>
+          <div class="top-actions">
+            <select class="select" aria-label="항로 선택">
+              <option>부산 → 미주서안</option>
+              <option>부산 → 북유럽</option>
+              <option>부산 → 동남아</option>
+            </select>
+            <button class="icon-button" type="button" title="새로고침" data-toast="시장 데이터를 다시 불러왔습니다.">↻</button>
+            <button class="primary-button" type="button" data-toast="선적 등록 화면 목업입니다.">+ 선적 등록</button>
+          </div>
+        </header>
+
+        <div class="dashboard-grid">
+          <section class="stack">
+            <article class="panel">
+              <div class="booking-alert">
+                <div class="recommendation">
+                  <span class="tag">CORE ALERT</span>
+                  <h2>8월 3주차 선적은 2주 내 부킹 확정 권고</h2>
+                  <p>
+                    예산 $2,800/FEU 대비 예상 운임이 18% 높습니다. 월 4 FEU 기준 약 $2,016
+                    초과 가능성이 있으며, 미주서안 항로는 단기 상승 압력이 남아 있습니다.
+                  </p>
+                  <div class="decision-actions">
+                    <button class="primary-button" type="button" data-toast="알림 발송 목업: 텔레그램으로 전송되었습니다.">알림 발송</button>
+                    <button class="ghost-button" type="button" data-toast="리포트 생성 목업입니다.">리포트 보기</button>
+                    <button class="ghost-button" type="button" data-toast="AI가 근거를 요약했습니다.">근거 설명</button>
+                  </div>
+                </div>
+
+                <div class="score-card">
+                  <div>
+                    <span>Booking Risk Score</span>
+                    <div class="score">82</div>
+                    <p>HIGH · 예산 초과와 납기 여유 부족이 동시에 감지되었습니다.</p>
+                  </div>
+                  <small>Last updated 2026.07.12 09:00 KST</small>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2>시장 펄스</h2>
+                  <p>KCCI, SCFI, 환율, 뉴스 이벤트를 결합한 오늘의 주요 신호입니다.</p>
+                </div>
+              </div>
+              <div class="metric-grid">
+                <div class="metric warning">
+                  <span>KCCI 부산-USWC</span>
+                  <strong>2,340p</strong>
+                  <small>전주 대비 +7.8%</small>
+                </div>
+                <div class="metric warning">
+                  <span>SCFI 보조지표</span>
+                  <strong>2,506p</strong>
+                  <small>4주 평균 상승</small>
+                </div>
+                <div class="metric">
+                  <span>원/달러 환율</span>
+                  <strong>1,380</strong>
+                  <small>전일 대비 -0.4%</small>
+                </div>
+                <div class="metric warning">
+                  <span>뉴스 이벤트</span>
+                  <strong>3건</strong>
+                  <small>홍해·파업·유가</small>
+                </div>
+              </div>
+            </article>
+
+            <section class="content-two">
+              <article class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>운임 추세</h3>
+                    <p>부산 → 미주서안, 최근 6주 운임지수</p>
+                  </div>
+                </div>
+                <div class="trend-body">
+                  <div class="chart" aria-label="운임 추세 막대 차트">
+                    <div class="bar" title="6주 전"></div>
+                    <div class="bar" title="5주 전"></div>
+                    <div class="bar" title="4주 전"></div>
+                    <div class="bar" title="3주 전"></div>
+                    <div class="bar" title="2주 전"></div>
+                    <div class="bar" title="이번 주"></div>
+                  </div>
+                  <div class="chart-note">
+                    <span>6주 전</span>
+                    <strong>이번 주 상승 압력 재확대</strong>
+                    <span>이번 주</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>AI 챗봇</h3>
+                    <p>Bedrock이 저장된 선적/시장 데이터를 근거로 답변합니다.</p>
+                  </div>
+                </div>
+                <div class="chat-preview">
+                  <div class="chat-message user">부산-LA 8월 선적 지금 잡는 게 좋아?</div>
+                  <div class="chat-message ai">
+                    현재는 예산 초과 가능성이 높고 견적 유효기간도 짧습니다. 2주 내 부킹
+                    확정 또는 물량 일부 선반영을 우선 검토하는 것이 좋습니다.
+                  </div>
+                  <div class="chat-input">
+                    <input aria-label="챗봇 질문" value="홍해 이슈가 미주서안에도 영향 있어?" />
+                    <button class="primary-button" type="button" data-toast="챗봇 응답 목업입니다.">전송</button>
+                  </div>
+                </div>
+              </article>
+            </section>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2>선적 입력 허브</h2>
+                  <p>화주가 즉시 아는 항목만 입력해 개인화 판단 기준으로 사용합니다.</p>
+                </div>
+              </div>
+              <div class="input-panel">
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="lane">항로</label>
+                    <select id="lane">
+                      <option>부산 → 미주서안</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="week">선적 예정</label>
+                    <input id="week" value="2026년 8월 3주차" />
+                  </div>
+                  <div class="field">
+                    <label for="volume">월 물량</label>
+                    <input id="volume" value="4 FEU" />
+                  </div>
+                  <div class="field">
+                    <label for="budget">예산단가</label>
+                    <input id="budget" value="$2,800 / FEU" />
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2>진행 중 선적</h2>
+                  <p>리스크가 높은 건부터 우선 정렬됩니다.</p>
+                </div>
+              </div>
+              <table class="shipment-list">
+                <thead>
+                  <tr>
+                    <th>선적 건</th>
+                    <th>항로</th>
+                    <th>예정</th>
+                    <th>예산</th>
+                    <th>판단</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>자동차 부품 1차</td>
+                    <td>Busan → LA</td>
+                    <td>8월 3주</td>
+                    <td>$2,800</td>
+                    <td><span class="status high">부킹 권고</span></td>
+                  </tr>
+                  <tr>
+                    <td>수산가공품 정기</td>
+                    <td>Busan → Rotterdam</td>
+                    <td>9월 1주</td>
+                    <td>$3,100</td>
+                    <td><span class="status medium">관찰</span></td>
+                  </tr>
+                  <tr>
+                    <td>생활용품 샘플</td>
+                    <td>Busan → Singapore</td>
+                    <td>7월 4주</td>
+                    <td>$1,250</td>
+                    <td><span class="status low">정상</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </article>
+          </section>
+
+          <aside class="right-rail">
+            <article class="panel briefing">
+              <div class="briefing-date">매일 아침 브리핑</div>
+              <h2>미주서안 운임은 상승, 환율은 소폭 완화</h2>
+              <p>
+                KCCI 단기 상승과 항만 혼잡 뉴스가 겹치며 8월 선적 건의 예산 초과 가능성이
+                커졌습니다. 환율은 완화됐지만 운임 상승분을 상쇄하기엔 부족합니다.
+              </p>
+              <div class="source-list">
+                <div class="source-item"><span>KCCI</span><strong>운임 메인</strong></div>
+                <div class="source-item"><span>ECOS</span><strong>환율 보조</strong></div>
+                <div class="source-item"><span>뉴스</span><strong>이벤트 감지</strong></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>이벤트 뉴스</h3>
+                  <p>Bedrock 요약 후보</p>
+                </div>
+              </div>
+              <div class="news-list">
+                <div class="news-item">
+                  <strong>미주 항만 혼잡 재확대</strong>
+                  <span>서안 항만 체류시간 증가로 선복 확보 리스크가 커졌습니다.</span>
+                </div>
+                <div class="news-item">
+                  <strong>홍해 우회 장기화</strong>
+                  <span>유럽 항로 중심이나 글로벌 선복 재배치에 영향을 줄 수 있습니다.</span>
+                </div>
+                <div class="news-item">
+                  <strong>유가 변동성 확대</strong>
+                  <span>BAF 및 부대비용 상승 가능성을 모니터링해야 합니다.</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Push 채널</h3>
+                  <p>정기 브리핑과 이벤트 경보</p>
+                </div>
+              </div>
+              <div class="channel-list">
+                <div class="channel">
+                  <strong>텔레그램</strong>
+                  <span class="toggle on" aria-hidden="true"></span>
+                </div>
+                <div class="channel">
+                  <strong>카카오 알림톡</strong>
+                  <span class="toggle" aria-hidden="true"></span>
+                </div>
+                <div class="channel">
+                  <strong>이메일 리포트</strong>
+                  <span class="toggle on" aria-hidden="true"></span>
+                </div>
+              </div>
+            </article>
+          </aside>
+        </div>
+      </main>
+    </div>
+
+    <div class="toast" role="status" aria-live="polite" id="toast">작업이 처리되었습니다.</div>
+
+    <script>
+      const toast = document.querySelector("#toast");
+      const buttons = document.querySelectorAll("[data-toast]");
+      const navButtons = document.querySelectorAll(".nav button");
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add("show");
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2200);
+      }
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => showToast(button.dataset.toast));
+      });
+
+      navButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          navButtons.forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          showToast(`${button.childNodes[0].textContent.trim()} 화면 목업입니다.`);
+        });
+      });
+    </script>
+  </body>
+</html>
