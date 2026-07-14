@@ -1,0 +1,32 @@
+{
+  "agent": {
+    "name": "PortPulse-Agent",
+    "description": "부산 수출 중소기업의 부킹 타이밍 최적화를 위한 단일 AI 에이전트. DB에서 시장 데이터를 조회하고 Claude Sonnet으로 종합 분석·브리핑 생성.",
+    "model_id": "apac.anthropic.claude-sonnet-4-20250514-v1:0",
+    "region": "ap-northeast-2",
+    "instruction": "당신은 PortPulse AI 에이전트입니다. 부산 중소 수출기업의 부킹 타이밍 최적화를 돕습니다. KCCI 운임지수, 환율, 뉴스 데이터를 종합 분석해 개인화된 부킹 타이밍 경보와 시황 브리핑을 생성합니다.",
+    "actions": [
+      {
+        "name": "GenerateDailyBriefing",
+        "description": "매일 아침 시황 브리핑 생성 (텔레그램 Push)"
+      },
+      {
+        "name": "GenerateBookingAlert",
+        "description": "특정 선적 건에 대한 개인화 부킹 타이밍 경보 생성"
+      }
+    ]
+  },
+  "knowledge_base": {
+    "name": "PortPulse-KnowledgeBase",
+    "description": "해운 도메인 지식 (항로별 특성, 성수기 패턴, GRI 메커니즘 등)",
+    "data_source": {
+      "type": "S3",
+      "bucket": "portpulse-knowledge-base",
+      "prefix": "docs/"
+    },
+    "embedding_model": "amazon.titan-embed-text-v2:0",
+    "chunking_strategy": "FIXED_SIZE",
+    "max_tokens": 512,
+    "overlap_percentage": 20
+  }
+}

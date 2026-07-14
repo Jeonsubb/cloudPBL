@@ -1,0 +1,554 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  PortPulse - 부산 수출 중소기업을 위한 개인화 부킹 타이밍 경보 서비스
+  AWS SAM 인프라 템플릿
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  PublicDataApiKey:
+    Type: String
+    NoEcho: true
+    Description: 공공데이터포털 API 키
+  EcosApiKey:
+    Type: String
+    NoEcho: true
+    Description: 한국은행 ECOS Open API 키
+  TelegramBotToken:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: 텔레그램 봇 토큰
+  TelegramChatId:
+    Type: String
+    Default: ""
+    Description: 텔레그램 채팅 ID
+  BedrockRegion:
+    Type: String
+    Default: ap-northeast-2
+  BedrockModelId:
+    Type: String
+    Default: apac.anthropic.claude-sonnet-4-20250514-v1:0
+    Description: Amazon Bedrock inference profile ID
+  EnableSchedules:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: 데이터 수집 정기 실행 활성화 여부
+  EnableNotifications:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: 텔레그램 정기 알림 활성화 여부
+
+Conditions:
+  SchedulesEnabled: !Equals [!Ref EnableSchedules, "true"]
+  NotificationsEnabled: !And
+    - !Equals [!Ref EnableSchedules, "true"]
+    - !Equals [!Ref EnableNotifications, "true"]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 60
+    MemorySize: 256
+    Environment:
+      Variables:
+        STAGE: !Ref Stage
+        DB_CLUSTER_ARN: !GetAtt Database.DBClusterArn
+        DB_SECRET_ARN: !Ref DatabaseSecret
+        DB_NAME: portpulse
+        USE_DATA_API: "true"
+        BEDROCK_REGION: !Ref BedrockRegion
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+
+Resources:
+
+  # ============================
+  # 1. 프론트엔드 호스팅 (S3 + CloudFront)
+  # ============================
+
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub portpulse-web-${AWS::AccountId}-${Stage}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${WebBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub portpulse-oac-${Stage}
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - Id: ApiOrigin
+            DomainName: !Sub ${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com
+            OriginPath: !Sub /${Stage}
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          Compress: true
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: https-only
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # AllViewerExceptHostHeader
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+  # ============================
+  # 2. API Gateway
+  # ============================
+
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub portpulse-api-${Stage}
+      StageName: !Ref Stage
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  DatabaseAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: PortPulse Lambda access to Aurora Data API and its database secret
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - rds-data:ExecuteStatement
+              - rds-data:BatchExecuteStatement
+              - rds-data:BeginTransaction
+              - rds-data:CommitTransaction
+              - rds-data:RollbackTransaction
+            Resource: !GetAtt Database.DBClusterArn
+          - Effect: Allow
+            Action: secretsmanager:GetSecretValue
+            Resource: !Ref DatabaseSecret
+
+  BedrockInvokePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: PortPulse Lambda access to invoke the configured Bedrock model
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+              - bedrock:Converse
+            Resource: "*"
+
+  DatabaseInitializerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-db-initializer-${Stage}
+      Handler: lambda.admin.init_db.handler
+      CodeUri: ../backend/
+      Policies:
+        - !Ref DatabaseAccessPolicy
+
+  # ============================
+  # 3. API Lambda Functions
+  # ============================
+
+  MarketDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-market-data-${Stage}
+      Handler: lambda.api.market_data.handler
+      CodeUri: ../backend/
+      Policies:
+        - !Ref DatabaseAccessPolicy
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /api/market-data
+            Method: GET
+
+  NewsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-news-${Stage}
+      Handler: lambda.api.news.handler
+      CodeUri: ../backend/
+      Policies:
+        - !Ref DatabaseAccessPolicy
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /api/news
+            Method: GET
+
+  ShipmentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-shipments-${Stage}
+      Handler: lambda.api.shipments.handler
+      CodeUri: ../backend/
+      Policies:
+        - !Ref DatabaseAccessPolicy
+      Events:
+        GetApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /api/shipments
+            Method: GET
+        PostApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /api/shipments
+            Method: POST
+
+  RiskAnalysisFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-risk-analysis-${Stage}
+      Handler: lambda.api.risk_analysis.handler
+      CodeUri: ../backend/
+      Timeout: 120
+      MemorySize: 512
+      Policies:
+        - !Ref DatabaseAccessPolicy
+        - !Ref BedrockInvokePolicy
+      Events:
+        GetApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /api/risk-analysis/{id}
+            Method: GET
+        PostApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /api/risk-analysis/{id}
+            Method: POST
+
+  ChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-chat-${Stage}
+      Handler: lambda.api.chat.handler
+      CodeUri: ../backend/
+      Timeout: 120
+      MemorySize: 512
+      Policies:
+        - !Ref DatabaseAccessPolicy
+        - !Ref BedrockInvokePolicy
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /api/chat
+            Method: POST
+
+  AlertsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-alerts-${Stage}
+      Handler: lambda.api.alerts.handler
+      CodeUri: ../backend/
+      Policies:
+        - !Ref DatabaseAccessPolicy
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /api/alerts
+            Method: GET
+
+  # ============================
+  # 4. 데이터 수집 Lambda (EventBridge 스케줄)
+  # ============================
+
+  DataCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-data-collector-${Stage}
+      Handler: lambda.collector.orchestrator.handler
+      CodeUri: ../backend/
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          PUBLIC_DATA_API_KEY: !Ref PublicDataApiKey
+          ECOS_API_KEY: !Ref EcosApiKey
+      Policies:
+        - !Ref DatabaseAccessPolicy
+        - !Ref BedrockInvokePolicy
+      Events:
+        MorningFull:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 21 * * ? *)  # UTC 21:00 = KST 06:00
+            Description: 매일 아침 6시(KST) 전체 수집 (KCCI+SCFI+관세청+환율+뉴스)
+            Input: '{"mode": "full"}'
+            Enabled: !If [SchedulesEnabled, true, false]
+        ExchangeRate:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0/30 0-9 ? * MON-FRI *)  # UTC 00~09 = KST 09~18, 매 30분
+            Description: 영업시간(KST 09~18) 30분마다 환율 수집
+            Input: '{"mode": "exchange"}'
+            Enabled: !If [SchedulesEnabled, true, false]
+        KcciMondayFirst:
+          Type: Schedule
+          Properties:
+            Schedule: cron(10 5 ? * MON *)  # UTC 05:10 = KST 14:10
+            Description: KCCI 월요일 발표 직후 1차 수집
+            Input: '{"mode": "kcci"}'
+            Enabled: !If [SchedulesEnabled, true, false]
+        KcciMondayRetry:
+          Type: Schedule
+          Properties:
+            Schedule: cron(10 6 ? * MON *)  # UTC 06:10 = KST 15:10
+            Description: KCCI 월요일 발표 지연 대비 재확인
+            Input: '{"mode": "kcci"}'
+            Enabled: !If [SchedulesEnabled, true, false]
+        ScfiFridayFirst:
+          Type: Schedule
+          Properties:
+            Schedule: cron(5 7 ? * FRI *)  # UTC 07:05 = KST 16:05
+            Description: SCFI 금요일 발표 직후 1차 수집
+            Input: '{"mode": "scfi"}'
+            Enabled: !If [SchedulesEnabled, true, false]
+        ScfiFridayRetry:
+          Type: Schedule
+          Properties:
+            Schedule: cron(5 8 ? * FRI *)  # UTC 08:05 = KST 17:05
+            Description: SCFI 금요일 발표 후 2차 재확인
+            Input: '{"mode": "scfi"}'
+            Enabled: !If [SchedulesEnabled, true, false]
+        ScfiSaturdayRetry:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 1 ? * SAT *)  # UTC 01:00 = KST 10:00
+            Description: SCFI 휴일·지연 발표 대비 토요일 재확인
+            Input: '{"mode": "scfi"}'
+            Enabled: !If [SchedulesEnabled, true, false]
+        NewsHourly:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 * * * ? *)  # 매시간 정각
+            Description: 매시간 뉴스 수집·분석
+            Input: '{"mode": "news"}'
+            Enabled: !If [SchedulesEnabled, true, false]
+
+  # ============================
+  # 5. Push 알림 Lambda
+  # ============================
+
+  NotifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-notifier-${Stage}
+      Handler: lambda.notifier.telegram_bot.handler
+      CodeUri: ../backend/
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
+          TELEGRAM_CHAT_ID: !Ref TelegramChatId
+      Policies:
+        - !Ref DatabaseAccessPolicy
+        - !Ref BedrockInvokePolicy
+      Events:
+        DailyBriefing:
+          Type: Schedule
+          Properties:
+            Schedule: cron(30 21 * * ? *)  # UTC 21:30 = KST 06:30 (수집 후 30분)
+            Description: 매일 아침 6:30(KST) 브리핑 발송
+            Enabled: !If [NotificationsEnabled, true, false]
+            Input: '{"action": "daily_briefing"}'
+
+  # ============================
+  # 6. 데이터베이스 (Aurora Serverless v2 PostgreSQL)
+  # ============================
+
+  DatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub portpulse-db-secret-${Stage}
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "portpulse_admin"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: PortPulse DB subnet group
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PortPulse Aurora security group
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+
+  Database:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DBClusterIdentifier: !Sub portpulse-db-${Stage}
+      Engine: aurora-postgresql
+      DatabaseName: portpulse
+      MasterUsername: !Sub "{{resolve:secretsmanager:${DatabaseSecret}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DatabaseSecret}:SecretString:password}}"
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: 0.5
+        MaxCapacity: 4
+      EnableHttpEndpoint: true  # Data API 활성화
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref DatabaseSecurityGroup
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref Database
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+
+  # ============================
+  # 7. 네트워킹 (VPC)
+  # ============================
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub portpulse-vpc-${Stage}
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Lambda functions security group
+      VpcId: !Ref VPC
+
+  # ============================
+  # 8. Knowledge Base (S3)
+  # ============================
+
+  KnowledgeBaseBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub portpulse-knowledge-base-${AWS::AccountId}-${Stage}
+
+# ============================
+# Outputs
+# ============================
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway URL
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
+
+  CloudFrontUrl:
+    Description: CloudFront Distribution URL
+    Value: !GetAtt CloudFrontDistribution.DomainName
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
+
+  WebBucketName:
+    Description: S3 bucket for frontend hosting
+    Value: !Ref WebBucket
+
+  DatabaseClusterArn:
+    Description: Aurora DB Cluster ARN
+    Value: !GetAtt Database.DBClusterArn
+
+  DatabaseSecretArn:
+    Description: Database credentials secret ARN
+    Value: !Ref DatabaseSecret
+
+  DatabaseInitializerFunctionName:
+    Description: Lambda function used to initialize the database schema
+    Value: !Ref DatabaseInitializerFunction
