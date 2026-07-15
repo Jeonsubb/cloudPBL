@@ -1,0 +1,8 @@
+{
+  "name": "portpulse-final",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "collect": "node src/local-run.mjs"
+  }
+}

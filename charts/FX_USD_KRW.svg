@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 420" font-family="Pretendard, Apple SD Gothic Neo, sans-serif">
+  <rect width="860" height="420" fill="#ffffff"/>
+  <text x="76" y="30" font-size="18" font-weight="700" fill="#0f172a">원/미국달러 매매기준율</text>
+  <text x="76" y="50" font-size="13" fill="#475569">원 · 2026-04-15 ~ 2026-07-14 · 기간 변화 +23.50 (1.59%)</text>
+  <line x1="76" y1="364.0" x2="764" y2="364.0" stroke="#e2e8f0"/><text x="66" y="368.0" text-anchor="end" font-size="12" fill="#64748b">1,440</text>
+<line x1="76" y1="314.0" x2="764" y2="314.0" stroke="#e2e8f0"/><text x="66" y="318.0" text-anchor="end" font-size="12" fill="#64748b">1,460</text>
+<line x1="76" y1="264.0" x2="764" y2="264.0" stroke="#e2e8f0"/><text x="66" y="268.0" text-anchor="end" font-size="12" fill="#64748b">1,480</text>
+<line x1="76" y1="214.0" x2="764" y2="214.0" stroke="#e2e8f0"/><text x="66" y="218.0" text-anchor="end" font-size="12" fill="#64748b">1,500</text>
+<line x1="76" y1="164.0" x2="764" y2="164.0" stroke="#e2e8f0"/><text x="66" y="168.0" text-anchor="end" font-size="12" fill="#64748b">1,520</text>
+<line x1="76" y1="114.0" x2="764" y2="114.0" stroke="#e2e8f0"/><text x="66" y="118.0" text-anchor="end" font-size="12" fill="#64748b">1,540</text>
+<line x1="76" y1="64.0" x2="764" y2="64.0" stroke="#e2e8f0"/><text x="66" y="68.0" text-anchor="end" font-size="12" fill="#64748b">1,560</text>
+  <text x="76.0" y="386" text-anchor="middle" font-size="12" fill="#64748b">04-15</text>
+<text x="213.6" y="386" text-anchor="middle" font-size="12" fill="#64748b">05-04</text>
+<text x="351.2" y="386" text-anchor="middle" font-size="12" fill="#64748b">05-21</text>
+<text x="488.8" y="386" text-anchor="middle" font-size="12" fill="#64748b">06-10</text>
+<text x="626.4" y="386" text-anchor="middle" font-size="12" fill="#64748b">06-26</text>
+<text x="764.0" y="386" text-anchor="middle" font-size="12" fill="#64748b">07-14</text>
+  <path d="M76.0,260.5 L87.5,281.3 L98.9,282.5 L110.4,264.0 L121.9,275.0 L133.3,287.0 L144.8,270.0 L156.3,262.5 L167.7,256.7 L179.2,281.3 L190.7,280.8 L202.1,273.8 L213.6,252.0 L225.1,287.8 L236.5,322.0 L248.0,337.0 L259.5,299.0 L270.9,281.5 L282.4,253.3 L293.9,226.3 L305.3,234.5 L316.8,214.5 L328.3,205.5 L339.7,204.5 L351.2,189.7 L362.7,205.3 L374.1,180.8 L385.6,194.2 L397.1,210.0 L408.5,199.5 L420.0,206.0 L431.5,185.8 L442.9,175.0 L454.4,142.5 L465.9,106.5 L477.3,97.8 L488.8,168.0 L500.3,158.0 L511.7,146.5 L523.2,163.0 L534.7,189.0 L546.1,180.3 L557.6,182.0 L569.1,155.5 L580.5,126.5 L592.0,124.7 L603.5,121.0 L614.9,118.3 L626.4,100.8 L637.9,103.5 L649.3,110.3 L660.8,93.0 L672.3,78.0 L683.7,78.8 L695.2,114.7 L706.7,134.5 L718.1,147.5 L729.6,189.2 L741.1,203.5 L752.5,196.3 L764.0,201.7" fill="none" stroke="#0ea5e9" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="764.0" cy="201.7" r="4" fill="#dc2626"/>
+  <text x="772.0" y="205.7" font-size="13" font-weight="700" fill="#dc2626">1,504.9</text>
+  <text x="76" y="406" font-size="11" fill="#94a3b8">출처: 한국은행 ECOS 731Y001/0000001 · 마지막 관측일 2026-07-14</text>
+</svg>

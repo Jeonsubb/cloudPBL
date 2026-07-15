@@ -1,0 +1,5 @@
+node_modules/
+data/
+.env
+cdk.out/
+.DS_Store
