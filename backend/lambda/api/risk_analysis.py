@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from shared.response import success, error, cors_preflight
 from shared.db import get_db
+from shared.routes import normalize_route
 
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "ap-northeast-2")
 BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "apac.anthropic.claude-sonnet-4-20250514-v1:0")
@@ -57,7 +58,7 @@ def handler(event, context):
             }
 
         # 해당 항로의 최근 시장 데이터 수집
-        route_code = _map_destination_to_route(shipment["destination"])
+        route_code = normalize_route(shipment["destination"], default="composite")
         market_context = _get_market_context(db, route_code)
 
         # Bedrock으로 리스크 분석
@@ -98,19 +99,6 @@ def handler(event, context):
     except Exception as e:
         print(f"Error in risk_analysis handler: {e}")
         return error(str(e), 500)
-
-
-def _map_destination_to_route(destination):
-    """도착지를 KCCI 항로 코드로 매핑"""
-    route_map = {
-        "미주서안": "us_west",
-        "미주동안": "us_east",
-        "유럽": "europe",
-        "동남아": "sea",
-        "일본": "japan",
-        "중국": "china",
-    }
-    return route_map.get(destination, "us_west")
 
 
 def _save_analysis_alert(db, shipment, analysis):

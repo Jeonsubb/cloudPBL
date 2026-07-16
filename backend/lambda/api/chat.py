@@ -1,40 +1,18 @@
-"""
-PortPulse - POST /api/chat
-AI 챗봇: Bedrock Claude를 활용한 해운 리스크 상담
-"""
+"""PortPulse - POST /api/chat Bedrock Supervisor Agent endpoint."""
 
 import json
 import sys
 import os
+import re
+import uuid
 import boto3
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from shared.response import success, error, cors_preflight
-from shared.db import get_db
 
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "ap-northeast-2")
-BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "apac.anthropic.claude-sonnet-4-20250514-v1:0")
-
-
-SYSTEM_PROMPT = """당신은 PortPulse AI 리스크 상담 어시스턴트입니다.
-부산 수출 중소기업의 부킹 타이밍 최적화를 돕습니다.
-
-역할:
-- 해운 운임 시황 설명 (KCCI, SCFI 기반)
-- 부킹 타이밍 조언 (지금 잡을지, 기다릴지)
-- 리스크 요인 설명 (홍해, 파업, 성수기 등)
-- 환율·거시 영향 해석
-
-규칙:
-- 한국어로 응답
-- 간결하고 실용적으로 (중소기업 실무자 대상)
-- 근거 데이터 출처(KCCI·SCFI·ECOS)를 가능한 명시
-- 모르는 것은 모른다고 솔직히 말하기
-- 투자 조언이 아닌 물류 의사결정 보조임을 명확히
-
-현재 시장 컨텍스트:
-{market_context}
-"""
+BEDROCK_AGENT_ID = os.environ.get("BEDROCK_AGENT_ID", "")
+BEDROCK_AGENT_ALIAS_ID = os.environ.get("BEDROCK_AGENT_ALIAS_ID", "")
 
 
 def handler(event, context):
@@ -51,42 +29,39 @@ def handler(event, context):
         if not user_message:
             return error("메시지를 입력해주세요.")
 
-        # 시장 데이터 컨텍스트 수집
-        market_context = _get_chat_context()
+        if not BEDROCK_AGENT_ID or not BEDROCK_AGENT_ALIAS_ID:
+            raise RuntimeError("Bedrock Supervisor Agent 환경변수가 설정되지 않았습니다.")
 
-        # Bedrock 호출
-        bedrock = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
+        session_id = _resolve_session_id(body.get("sessionId"), event)
 
-        # 대화 이력 구성
-        messages = []
-        for msg in conversation_history[-10:]:  # 최근 10개만
-            if msg.get("role") not in {"user", "assistant"} or not msg.get("content"):
-                continue
-            messages.append({
-                "role": msg["role"],
-                "content": msg["content"],
-            })
-        messages.append({"role": "user", "content": user_message})
-
-        response = bedrock.invoke_model(
-            modelId=BEDROCK_MODEL_ID,
-            contentType="application/json",
-            accept="application/json",
-            body=json.dumps({
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 1500,
-                "system": SYSTEM_PROMPT.format(market_context=market_context),
-                "messages": messages,
-                "temperature": 0.7,
-            }),
+        agent_runtime = boto3.client(
+            "bedrock-agent-runtime",
+            region_name=BEDROCK_REGION,
         )
+        request = {
+            "agentId": BEDROCK_AGENT_ID,
+            "agentAliasId": BEDROCK_AGENT_ALIAS_ID,
+            "sessionId": session_id,
+            "inputText": user_message,
+            "enableTrace": False,
+            "sessionState": {
+                "sessionAttributes": {"userId": _get_user_id(event)}
+            },
+        }
 
-        result = json.loads(response["body"].read())
-        ai_response = result["content"][0]["text"]
+        # 새 Agent 세션일 때만 기존 UI 이력을 가져온다. 이후에는 Agent가 세션을 유지한다.
+        if not body.get("sessionId"):
+            history = _build_conversation_history(conversation_history)
+            if history:
+                request["sessionState"]["conversationHistory"] = {"messages": history}
+
+        response = agent_runtime.invoke_agent(**request)
+        ai_response = _read_agent_completion(response)
 
         return success({
             "reply": ai_response,
-            "model": BEDROCK_MODEL_ID,
+            "model": "supervisor-agent",
+            "sessionId": response.get("sessionId", session_id),
         })
 
     except Exception as e:
@@ -98,44 +73,53 @@ def handler(event, context):
         })
 
 
-def _get_chat_context():
-    """챗봇에 제공할 최신 시장 데이터 요약"""
-    try:
-        db = get_db()
+def _resolve_session_id(requested_session_id, event):
+    """Return an InvokeAgent-compatible session identifier."""
+    raw_session_id = requested_session_id or event.get("requestContext", {}).get("requestId")
+    if not raw_session_id:
+        raw_session_id = str(uuid.uuid4())
 
-        kcci = db.query("""
-            SELECT index_value, change_rate, recorded_date
-            FROM market_data
-            WHERE data_type = 'kcci' AND route = 'composite'
-            ORDER BY recorded_date DESC LIMIT 1
-        """)
+    session_id = re.sub(r"[^0-9a-zA-Z._:-]", "-", str(raw_session_id))[:100]
+    return session_id if len(session_id) >= 2 else str(uuid.uuid4())
 
-        exchange = db.query("""
-            SELECT index_value FROM market_data
-            WHERE data_type = 'exchange_rate'
-            ORDER BY recorded_date DESC LIMIT 1
-        """)
 
-        news = db.query("""
-            SELECT title, category FROM news
-            WHERE impact_level = 'HIGH'
-            ORDER BY published_date DESC LIMIT 3
-        """)
+def _build_conversation_history(conversation_history):
+    """Convert the legacy UI history to the Bedrock Agent message shape."""
+    messages = []
+    for message in conversation_history[-10:]:
+        role = message.get("role")
+        content = message.get("content")
+        if role not in {"user", "assistant"} or not isinstance(content, str):
+            continue
+        if content.strip():
+            messages.append({
+                "role": role,
+                "content": [{"text": content.strip()}],
+            })
+    return messages
 
-        context_parts = []
-        if kcci:
-            context_parts.append(
-                f"- KCCI 종합: {kcci[0]['index_value']}p (전주 대비 {kcci[0].get('change_rate', 'N/A')}%)"
-            )
-        if exchange:
-            context_parts.append(f"- 원/달러: {exchange[0]['index_value']}원")
-        if news:
-            context_parts.append("- 주요 뉴스: " + " / ".join(n["title"] for n in news))
 
-        return "\n".join(context_parts) if context_parts else "시장 데이터 로딩 중"
+def _read_agent_completion(response):
+    """Collect the final text from the InvokeAgent event stream."""
+    chunks = []
+    for event in response.get("completion", []):
+        chunk = event.get("chunk")
+        if chunk and chunk.get("bytes"):
+            chunks.append(chunk["bytes"].decode("utf-8"))
 
-    except Exception:
-        return "시장 데이터 조회 불가"
+    completion = "".join(chunks).strip()
+    if not completion:
+        raise RuntimeError("Bedrock Supervisor Agent가 빈 응답을 반환했습니다.")
+    return completion
+
+
+def _get_user_id(event):
+    claims = (
+        event.get("requestContext", {})
+        .get("authorizer", {})
+        .get("claims", {})
+    )
+    return claims.get("sub", "demo-user")
 
 
 def _fallback_response(message):

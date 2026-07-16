@@ -104,7 +104,7 @@ echo "CloudFormation 배포"
 sam deploy \
   --stack-name "portpulse-$STAGE" \
   --region "$REGION" \
-  --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
   --parameter-overrides "${PARAMETER_OVERRIDES[@]}" \
   --no-confirm-changeset \
   --no-fail-on-empty-changeset \
@@ -128,6 +128,65 @@ aws lambda invoke \
 
 if ! grep -q '"statusCode": 200' "$DB_INIT_RESULT"; then
   echo "DB 스키마 초기화에 실패했습니다: $DB_INIT_RESULT" >&2
+  exit 1
+fi
+
+echo "Knowledge Base 문서 업로드"
+KB_BUCKET_NAME="$(aws cloudformation describe-stacks \
+  --stack-name "portpulse-$STAGE" \
+  --region "$REGION" \
+  --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseBucketName'].OutputValue" \
+  --output text)"
+KNOWLEDGE_BASE_ID="$(aws cloudformation describe-stacks \
+  --stack-name "portpulse-$STAGE" \
+  --region "$REGION" \
+  --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseId'].OutputValue" \
+  --output text)"
+KNOWLEDGE_DATA_SOURCE_ID="$(aws cloudformation describe-stacks \
+  --stack-name "portpulse-$STAGE" \
+  --region "$REGION" \
+  --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseDataSourceId'].OutputValue" \
+  --output text)"
+
+aws s3 sync \
+  "$PROJECT_DIR/backend/bedrock/agents/knowledge_docs" \
+  "s3://$KB_BUCKET_NAME/docs/" \
+  --delete
+
+INGESTION_JOB_ID="$(aws bedrock-agent start-ingestion-job \
+  --region "$REGION" \
+  --knowledge-base-id "$KNOWLEDGE_BASE_ID" \
+  --data-source-id "$KNOWLEDGE_DATA_SOURCE_ID" \
+  --description "PortPulse $STAGE deployment document sync" \
+  --query 'ingestionJob.ingestionJobId' \
+  --output text)"
+echo "Knowledge Base ingestion 시작 (job=$INGESTION_JOB_ID)"
+
+INGESTION_STATUS="STARTING"
+for _ in {1..60}; do
+  INGESTION_STATUS="$(aws bedrock-agent get-ingestion-job \
+    --region "$REGION" \
+    --knowledge-base-id "$KNOWLEDGE_BASE_ID" \
+    --data-source-id "$KNOWLEDGE_DATA_SOURCE_ID" \
+    --ingestion-job-id "$INGESTION_JOB_ID" \
+    --query 'ingestionJob.status' \
+    --output text)"
+
+  if [[ "$INGESTION_STATUS" == "COMPLETE" ]]; then
+    echo "Knowledge Base ingestion 완료"
+    break
+  fi
+
+  if [[ "$INGESTION_STATUS" == "FAILED" ]]; then
+    echo "Knowledge Base ingestion에 실패했습니다 (job=$INGESTION_JOB_ID)." >&2
+    exit 1
+  fi
+
+  sleep 10
+done
+
+if [[ "$INGESTION_STATUS" != "COMPLETE" ]]; then
+  echo "Knowledge Base ingestion 완료를 기다리는 중 시간 초과가 발생했습니다 (status=$INGESTION_STATUS)." >&2
   exit 1
 fi
 

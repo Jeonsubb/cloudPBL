@@ -189,6 +189,250 @@ Resources:
               - bedrock:Converse
             Resource: "*"
 
+  ChatGuardrail:
+    Type: AWS::Bedrock::Guardrail
+    Properties:
+      Name: !Sub portpulse-chat-${Stage}
+      Description: PortPulse 물류 리스크 상담 입력 및 출력 보호
+      BlockedInputMessaging: 요청하신 내용은 PortPulse 물류 리스크 상담 범위 또는 보안 정책상 처리할 수 없습니다.
+      BlockedOutputsMessaging: 안전하고 검증 가능한 답변을 생성하지 못했습니다. 물류·운임·부킹 관련 질문으로 다시 요청해주세요.
+      ContentPolicyConfig:
+        FiltersConfig:
+          - Type: PROMPT_ATTACK
+            InputStrength: HIGH
+            OutputStrength: NONE
+            InputAction: BLOCK
+            OutputAction: NONE
+            InputEnabled: true
+            OutputEnabled: false
+          - Type: MISCONDUCT
+            InputStrength: HIGH
+            OutputStrength: HIGH
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: HATE
+            InputStrength: MEDIUM
+            OutputStrength: MEDIUM
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: INSULTS
+            InputStrength: MEDIUM
+            OutputStrength: MEDIUM
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: SEXUAL
+            InputStrength: HIGH
+            OutputStrength: HIGH
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: VIOLENCE
+            InputStrength: HIGH
+            OutputStrength: HIGH
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+      TopicPolicyConfig:
+        TopicsConfig:
+          - Name: PersonalInvestmentAdvice
+            Definition: 개인의 투자 수익을 목적으로 주식, 채권, 가상자산 또는 금융상품의 매수, 매도, 보유를 지시하거나 추천하는 조언
+            Examples:
+              - 지금 어떤 주식을 사야 해?
+              - 비트코인에 투자해도 될까?
+            Type: DENY
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+      SensitiveInformationPolicyConfig:
+        PiiEntitiesConfig:
+          - Type: EMAIL
+            Action: ANONYMIZE
+            InputAction: ANONYMIZE
+            OutputAction: ANONYMIZE
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: PHONE
+            Action: ANONYMIZE
+            InputAction: ANONYMIZE
+            OutputAction: ANONYMIZE
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: PASSWORD
+            Action: BLOCK
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: AWS_ACCESS_KEY
+            Action: BLOCK
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: AWS_SECRET_KEY
+            Action: BLOCK
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+          - Type: CREDIT_DEBIT_CARD_NUMBER
+            Action: BLOCK
+            InputAction: BLOCK
+            OutputAction: BLOCK
+            InputEnabled: true
+            OutputEnabled: true
+
+  ChatGuardrailVersion:
+    Type: AWS::Bedrock::GuardrailVersion
+    Properties:
+      GuardrailIdentifier: !GetAtt ChatGuardrail.GuardrailId
+      Description: !Sub PortPulse ${Stage} chat guardrail version
+
+  SupervisorAgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub portpulse-bedrock-supervisor-${Stage}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: InvokeFoundationModel
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: "*"
+              - Effect: Allow
+                Action: bedrock:ApplyGuardrail
+                Resource: !GetAtt ChatGuardrail.GuardrailArn
+              - Effect: Allow
+                Action:
+                  - bedrock:Retrieve
+                  - bedrock:RetrieveAndGenerate
+                Resource: !GetAtt PortPulseKnowledgeBase.KnowledgeBaseArn
+
+  AgentToolsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub portpulse-agent-tools-${Stage}
+      Handler: lambda.agent.tools.handler
+      CodeUri: ../backend/
+      Timeout: 30
+      MemorySize: 256
+      Policies:
+        - !Ref DatabaseAccessPolicy
+
+  AgentToolsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt AgentToolsFunction.Arn
+      Principal: bedrock.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:agent/*
+
+  SupervisorAgent:
+    Type: AWS::Bedrock::Agent
+    DependsOn: AgentToolsPermission
+    Properties:
+      AgentName: !Sub portpulse-supervisor-${Stage}
+      Description: PortPulse 해운 리스크 상담 Supervisor Agent
+      AgentResourceRoleArn: !GetAtt SupervisorAgentRole.Arn
+      FoundationModel: !Ref BedrockModelId
+      AutoPrepare: true
+      AgentCollaboration: DISABLED
+      IdleSessionTTLInSeconds: 900
+      GuardrailConfiguration:
+        GuardrailIdentifier: !GetAtt ChatGuardrail.GuardrailId
+        GuardrailVersion: !GetAtt ChatGuardrailVersion.Version
+      KnowledgeBases:
+        - KnowledgeBaseId: !Ref PortPulseKnowledgeBase
+          Description: 해운 항로, 운임지수, 할증료, Incoterms와 부킹 판단 기준에 관한 검증된 도메인 문서를 검색합니다.
+          KnowledgeBaseState: ENABLED
+      ActionGroups:
+        - ActionGroupName: PortPulseReadTools
+          Description: PortPulse 시장, 뉴스, 선적 리스크 조회 도구
+          ActionGroupState: ENABLED
+          ActionGroupExecutor:
+            Lambda: !GetAtt AgentToolsFunction.Arn
+          FunctionSchema:
+            Functions:
+              - Name: GetMarketSnapshot
+                Description: 최신 KCCI, SCFI, 원달러 환율과 기준금리를 조회합니다. 현재 운임이나 시장 상황 질문에 사용합니다.
+                RequireConfirmation: DISABLED
+                Parameters:
+                  route:
+                    Description: 조회 항로. 종합, 미주서안, 미주동안, 유럽, 동남아, 일본, 중국 중 하나입니다.
+                    Type: string
+                    Required: false
+              - Name: GetHighImpactNews
+                Description: 최근 HIGH 영향도 해운 뉴스를 조회합니다. 공급망 사건과 운임 리스크 원인 질문에 사용합니다.
+                RequireConfirmation: DISABLED
+                Parameters:
+                  limit:
+                    Description: 조회할 뉴스 개수이며 1에서 10 사이입니다.
+                    Type: integer
+                    Required: false
+                  category:
+                    Description: 선택적인 뉴스 카테고리 필터입니다.
+                    Type: string
+                    Required: false
+              - Name: GetShipmentRisk
+                Description: 현재 사용자의 특정 선적 정보와 저장된 리스크 점수를 조회합니다. 선적별 부킹 상담에 사용합니다.
+                RequireConfirmation: DISABLED
+                Parameters:
+                  shipmentId:
+                    Description: 조회할 선적 건의 정수 ID입니다.
+                    Type: integer
+                    Required: true
+      Instruction: |
+        당신은 PortPulse의 단일 Supervisor Agent입니다. 부산 수출 중소기업의 해운 리스크와 부킹 타이밍 의사결정을 지원합니다.
+        최신 KCCI, SCFI, ECOS 시장 정보나 사용자의 선적 정보가 필요한 질문에는 PortPulseReadTools의 적절한 조회 도구를 호출한 뒤 그 결과를 근거로 답하세요.
+        항로 특성, 운임지수의 의미, 할증료, Incoterms 같은 안정적인 해운 지식이 필요한 질문에는 PortPulse Knowledge Base를 검색하세요.
+        최신 수치와 사용자별 정보는 Knowledge Base에서 추정하지 말고 반드시 조회 도구를 사용하세요.
+        도구가 반환하지 않은 최신 수치나 선적 정보는 추측하지 마세요. 일반적인 해운 지식 질문에는 도구 호출 없이 직접 답할 수 있습니다.
+        물류, 해운 운임, 공급망, 환율의 물류비 영향, 부킹 리스크와 무관한 요청은 간단히 범위를 안내하고 처리하지 마세요.
+        개인 투자상품의 매수나 매도를 추천하지 말고, 환율은 오직 물류비와 계약 조건에 미치는 영향만 설명하세요.
+        항상 한국어로 간결하고 실무적으로 답하고, 활용한 데이터 출처를 가능한 한 명시하세요. 확인할 수 없는 내용은 추측하지 말고 모른다고 답하세요.
+        답변은 투자 조언이 아니라 물류 의사결정 보조라는 점을 지키세요. 현재는 서브 에이전트가 없으므로 모든 요청을 직접 처리하세요.
+
+  SupervisorAgentAlias:
+    Type: AWS::Bedrock::AgentAlias
+    Properties:
+      AgentAliasName: !Sub portpulse-supervisor-${Stage}
+      AgentId: !GetAtt SupervisorAgent.AgentId
+      Description: !Sub PortPulse ${Stage} Supervisor Agent alias
+
+  BedrockAgentInvokePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: PortPulse chat Lambda access to invoke the Supervisor Agent
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: bedrock:InvokeAgent
+            Resource: !GetAtt SupervisorAgentAlias.AgentAliasArn
+
   DatabaseInitializerFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -289,9 +533,13 @@ Resources:
       CodeUri: ../backend/
       Timeout: 120
       MemorySize: 512
+      Environment:
+        Variables:
+          BEDROCK_REGION: !Ref AWS::Region
+          BEDROCK_AGENT_ID: !GetAtt SupervisorAgent.AgentId
+          BEDROCK_AGENT_ALIAS_ID: !GetAtt SupervisorAgentAlias.AgentAliasId
       Policies:
-        - !Ref DatabaseAccessPolicy
-        - !Ref BedrockInvokePolicy
+        - !Ref BedrockAgentInvokePolicy
       Events:
         Api:
           Type: Api
@@ -456,6 +704,8 @@ Resources:
 
   Database:
     Type: AWS::RDS::DBCluster
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
     Properties:
       DBClusterIdentifier: !Sub portpulse-db-${Stage}
       Engine: aurora-postgresql
@@ -517,8 +767,113 @@ Resources:
 
   KnowledgeBaseBucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub portpulse-knowledge-base-${AWS::AccountId}-${Stage}
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  KnowledgeVectorBucket:
+    Type: AWS::S3Vectors::VectorBucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VectorBucketName: !Sub portpulse-kb-vectors-${AWS::AccountId}-${Stage}
+
+  KnowledgeVectorIndex:
+    Type: AWS::S3Vectors::Index
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VectorBucketArn: !GetAtt KnowledgeVectorBucket.VectorBucketArn
+      IndexName: !Sub portpulse-kb-index-${Stage}
+      DataType: float32
+      Dimension: 1024
+      DistanceMetric: cosine
+
+  KnowledgeBaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub portpulse-bedrock-kb-${Stage}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*
+      Policies:
+        - PolicyName: KnowledgeBaseDataAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt KnowledgeBaseBucket.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix: docs/*
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub ${KnowledgeBaseBucket.Arn}/docs/*
+              - Effect: Allow
+                Action:
+                  - s3vectors:PutVectors
+                  - s3vectors:GetVectors
+                  - s3vectors:DeleteVectors
+                  - s3vectors:QueryVectors
+                  - s3vectors:GetIndex
+                Resource: !GetAtt KnowledgeVectorIndex.IndexArn
+
+  PortPulseKnowledgeBase:
+    Type: AWS::Bedrock::KnowledgeBase
+    Properties:
+      Name: !Sub PortPulse_KnowledgeBase_${Stage}
+      Description: PortPulse 해운 물류 도메인 문서 Knowledge Base
+      RoleArn: !GetAtt KnowledgeBaseRole.Arn
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+      StorageConfiguration:
+        Type: S3_VECTORS
+        S3VectorsConfiguration:
+          IndexArn: !GetAtt KnowledgeVectorIndex.IndexArn
+
+  KnowledgeBaseDataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      Name: !Sub PortPulse_S3_Documents_${Stage}
+      Description: PortPulse 검증 해운 문서 S3 데이터 소스
+      KnowledgeBaseId: !Ref PortPulseKnowledgeBase
+      DataDeletionPolicy: RETAIN
+      DataSourceConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !GetAtt KnowledgeBaseBucket.Arn
+          BucketOwnerAccountId: !Ref AWS::AccountId
+          InclusionPrefixes:
+            - docs/
+      VectorIngestionConfiguration:
+        ChunkingConfiguration:
+          ChunkingStrategy: FIXED_SIZE
+          FixedSizeChunkingConfiguration:
+            MaxTokens: 512
+            OverlapPercentage: 20
 
 # ============================
 # Outputs
@@ -552,3 +907,35 @@ Outputs:
   DatabaseInitializerFunctionName:
     Description: Lambda function used to initialize the database schema
     Value: !Ref DatabaseInitializerFunction
+
+  SupervisorAgentId:
+    Description: Bedrock Supervisor Agent ID
+    Value: !GetAtt SupervisorAgent.AgentId
+
+  SupervisorAgentAliasId:
+    Description: Bedrock Supervisor Agent alias ID
+    Value: !GetAtt SupervisorAgentAlias.AgentAliasId
+
+  AgentToolsFunctionName:
+    Description: Lambda function used by the Supervisor Agent action group
+    Value: !Ref AgentToolsFunction
+
+  ChatGuardrailId:
+    Description: Bedrock Guardrail used by the Supervisor Agent
+    Value: !GetAtt ChatGuardrail.GuardrailId
+
+  ChatGuardrailVersionNumber:
+    Description: Version of the Bedrock Guardrail used by the Supervisor Agent
+    Value: !GetAtt ChatGuardrailVersion.Version
+
+  KnowledgeBaseBucketName:
+    Description: S3 bucket containing Knowledge Base source documents
+    Value: !Ref KnowledgeBaseBucket
+
+  KnowledgeBaseId:
+    Description: Bedrock Knowledge Base ID
+    Value: !Ref PortPulseKnowledgeBase
+
+  KnowledgeBaseDataSourceId:
+    Description: Bedrock Knowledge Base S3 data source ID
+    Value: !GetAtt KnowledgeBaseDataSource.DataSourceId

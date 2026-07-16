@@ -12,6 +12,7 @@ export default function RiskChat() {
   ]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
 
   const suggestions = [
     '왜 리스크가 높아?',
@@ -36,8 +37,9 @@ export default function RiskChat() {
       }));
       const result = await fetchJson('/chat', {
         method: 'POST',
-        body: JSON.stringify({ message: userMessage.text, history }),
+        body: JSON.stringify({ message: userMessage.text, history, sessionId }),
       });
+      if (result.sessionId) setSessionId(result.sessionId);
       setMessages((prev) => [...prev, { role: 'ai', text: result.reply, model: result.model }]);
     } catch (error) {
       setMessages((prev) => [...prev, { role: 'ai', text: error.message || 'AI 상담 연결에 실패했습니다.', error: true }]);

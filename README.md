@@ -72,8 +72,12 @@ SAM 템플릿 기준 주요 API는 다음과 같습니다.
 | `GET` | `/api/shipments` | `backend/lambda/api/shipments.py` | 등록된 선적 건 목록 조회 |
 | `POST` | `/api/shipments` | `backend/lambda/api/shipments.py` | 선적 건 등록 |
 | `GET` | `/api/risk-analysis/{id}` | `backend/lambda/api/risk_analysis.py` | 특정 선적 건 리스크 분석 |
-| `POST` | `/api/chat` | `backend/lambda/api/chat.py` | Bedrock 챗봇 메시지 처리 |
+| `POST` | `/api/chat` | `backend/lambda/api/chat.py` | Bedrock Supervisor Agent 메시지 처리 |
 | `GET` | `/api/alerts` | `backend/lambda/api/alerts.py` | 알림 목록 조회 |
+
+Supervisor Agent는 `backend/lambda/agent/tools.py`의 읽기 전용 Action Group을 사용해 최신 시장 데이터, 고영향 뉴스, 사용자 선적 리스크를 Aurora에서 필요한 시점에 조회합니다.
+채팅 입력과 Agent 응답에는 Bedrock Guardrail이 적용되며 프롬프트 공격, 유해 콘텐츠, 개인 투자 조언과 민감정보 노출을 제한합니다.
+안정적인 해운 도메인 문서는 S3 데이터 소스에서 Bedrock Knowledge Base로 수집되며, Titan Text Embeddings V2와 S3 Vectors를 사용해 Supervisor Agent의 RAG 검색에 연결됩니다. 최신 시장 수치와 사용자 데이터는 Knowledge Base가 아니라 Agent Tool을 사용합니다.
 
 ## 로컬 실행
 
@@ -134,6 +138,8 @@ PUBLIC_DATA_API_KEY=공공데이터포털_API_KEY
 ECOS_API_KEY=한국은행_ECOS_API_KEY
 BEDROCK_REGION=ap-northeast-2
 BEDROCK_MODEL_ID=apac.anthropic.claude-sonnet-4-20250514-v1:0
+BEDROCK_AGENT_ID=CloudFormation이_생성한_Agent_ID
+BEDROCK_AGENT_ALIAS_ID=CloudFormation이_생성한_Alias_ID
 ```
 
 DB 스키마 초기화는 배포 후 `backend/lambda/admin/init_db.py` Lambda가 수행합니다. `infra/deploy.sh`는 배포 후 이 Lambda를 자동 호출합니다.
@@ -149,6 +155,7 @@ DB 스키마 초기화는 배포 후 `backend/lambda/admin/init_db.py` Lambda가
 - 공공데이터포털 API 키
 - 한국은행 ECOS API 키
 - Bedrock 모델 호출 권한
+- Bedrock Agent 생성 및 호출 권한
 
 ### 1. 배포용 비밀값 저장
 

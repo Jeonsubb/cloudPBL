@@ -16,6 +16,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from shared.db import get_db
+from shared.routes import normalize_route
 
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "ap-northeast-2")
 BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "apac.anthropic.claude-sonnet-4-20250514-v1:0")
@@ -78,7 +79,7 @@ JSON 형식으로 응답:
     def generate_booking_alert(self, shipment):
         """특정 선적 건에 대한 부킹 타이밍 경보 생성"""
         market_data = self._collect_all_market_data(
-            route=self._map_destination_to_route(shipment.get("destination"))
+            route=normalize_route(shipment.get("destination"), default="composite")
         )
 
         budget = shipment.get("budget_per_unit", "N/A")
@@ -239,19 +240,6 @@ JSON 형식으로 경보를 생성해주세요:
             """,
             {"user_id": user_id},
         )
-
-    def _map_destination_to_route(self, destination):
-        """도착지를 KCCI 항로 코드로 매핑"""
-        route_map = {
-            "미주서안": "us_west",
-            "미주동안": "us_east",
-            "유럽": "europe",
-            "동남아": "sea",
-            "일본": "japan",
-            "중국": "china",
-        }
-        return route_map.get(destination, "composite")
-
 
 def handler(event, context):
     """Lambda 핸들러 (EventBridge 또는 직접 호출)"""
