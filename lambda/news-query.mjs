@@ -31,9 +31,10 @@ export async function handler(event) {
     }),
   );
 
-  // 키워드 점수 0(해운 키워드 무매칭)은 잡음으로 보고 목록에서 제외한다.
+  // 키워드 점수 0(해운 키워드 무매칭)은 잡음으로 제외. duplicate는 news-collector가
+  // Bedrock으로 미리 계산해둔 "같은 사안, 다른 신문사" 중복 표시 — 여기선 플래그만 읽는다(재계산 없음).
   const relevant = (result.Items ?? [])
-    .filter((it) => (it.score ?? 0) > 0)
+    .filter((it) => (it.score ?? 0) > 0 && !it.duplicate)
     .sort((a, b) => b.score - a.score || b.pubDate.localeCompare(a.pubDate));
 
   const items = relevant.slice(0, limit).map(({ title, link, source, pubDate, score }) => ({

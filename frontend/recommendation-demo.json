@@ -1,0 +1,650 @@
+{
+  "asOf": "2026-07-16",
+  "brief": {
+    "asOf": "2026-07-16",
+    "company": "GreenWave Korea Co., Ltd.",
+    "shipment": {
+      "id": "SHP-2026-001",
+      "orderRef": "SO-2026-1048",
+      "customer": "NordHaus GmbH",
+      "lane": "Busan→Hamburg",
+      "routeCode": "KNEI",
+      "routeLabel": "북유럽",
+      "equipment": "40HC",
+      "containers": 2,
+      "cargoType": "DRY",
+      "commodity": "Finished home organization products",
+      "cargoReadyDate": "2026-08-24",
+      "requiredDeliveryDate": "2026-10-10",
+      "incoterms": "FOB",
+      "freightPayer": "EXPORTER",
+      "budgetTotal": 9000,
+      "budgetPerFeu": 4500,
+      "budgetCurrency": "USD",
+      "deadlineLatestEta": "2026-10-03",
+      "minDeliveryBufferDays": 7,
+      "maxTransshipments": 1
+    },
+    "market": {
+      "now": 4900,
+      "wowPct": -0.6,
+      "m1Pct": 7.3,
+      "m3Pct": 10.6,
+      "yoyPct": 96.8,
+      "pctile52": 96,
+      "pctileAll": 99,
+      "z52": 1.54,
+      "min52": 2581,
+      "max52": 4954,
+      "fromMin52Pct": 89.8,
+      "fromMax52Pct": -1.1,
+      "slope12WkPctPerWk": 1.21,
+      "regime": "ELEVATED",
+      "momentum": "RISING",
+      "routeLabel": "북유럽",
+      "indexNow": 4900
+    },
+    "composite": {
+      "now": 4318,
+      "pctile52": 98,
+      "yoyPct": 88.1,
+      "regime": "ELEVATED",
+      "momentum": "FLAT"
+    },
+    "fx": {
+      "value": 1504.9,
+      "date": "2026-07-14",
+      "d1Pct": -0.15,
+      "m1Pct": -1.45,
+      "yoyPct": null
+    },
+    "baseRate": {
+      "date": "2026-07-11",
+      "value": 2.5
+    },
+    "company_stats": {
+      "sampleSize": 8,
+      "lane": "Busan, KR→Hamburg, DE",
+      "equipment": "40HC",
+      "usdPerKcciPt": 1.44,
+      "projectedFairPerFeu": 5112,
+      "marketAdjustedFairPerFeu": 5112,
+      "indexChangeSinceLastPct": 23.5,
+      "lastShipmentDate": "2026-01-11",
+      "historicalPerFeu": {
+        "first": 3620,
+        "last": 4140,
+        "trendPct": 14.4
+      },
+      "forwarders": [
+        {
+          "forwarder": "Bluewave Logistics",
+          "shipments": 5,
+          "carriers": [
+            "Maersk"
+          ],
+          "avgDelayDays": 1.2,
+          "avgQuoteOverrunPct": 1.1,
+          "onTimeRate": 80,
+          "avgTransship": 0
+        },
+        {
+          "forwarder": "HarborLink",
+          "shipments": 3,
+          "carriers": [
+            "Hapag-Lloyd"
+          ],
+          "avgDelayDays": 4.3,
+          "avgQuoteOverrunPct": 3.3,
+          "onTimeRate": 0,
+          "avgTransship": 1
+        }
+      ]
+    },
+    "budget": {
+      "budgetTotal": 9000,
+      "budgetPerFeu": 4500,
+      "vsProjectedPct": -12,
+      "vsLastPaidPct": 8.7,
+      "vsSpotNowPct": -14.1
+    },
+    "schedule": {
+      "window": {
+        "from": "2026-08-17",
+        "to": "2026-10-31"
+      },
+      "totalGenerated": 22,
+      "boardable": 20,
+      "feasibleCount": 1,
+      "comfortableCount": 0,
+      "candidates": [
+        {
+          "routeCode": "KNEI",
+          "service": "FE4",
+          "operator": "ONE",
+          "vessel": "ONE TRIBUTE",
+          "voyage": "OTRI0290W",
+          "direct": true,
+          "transitDays": 40,
+          "etd": "2026-08-28",
+          "eta": "2026-10-07",
+          "priceUSD": 5240,
+          "priceBasis": {
+            "anchorUsd": 5400,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -2.9
+          },
+          "totalUSD": 10480,
+          "deliveryBufferDays": 3,
+          "meetsRequired": true,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 4,
+          "withinTsPref": true,
+          "feasible": true,
+          "comfortable": false,
+          "vsBudgetPct": 16.4
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE3",
+          "operator": "HMM",
+          "vessel": "HMM SOUTHAMPTON",
+          "voyage": "HSOU0290W",
+          "direct": false,
+          "transitDays": 68,
+          "etd": "2026-08-28",
+          "eta": "2026-11-04",
+          "priceUSD": 5030,
+          "priceBasis": {
+            "anchorUsd": 4900,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": 2.6
+          },
+          "totalUSD": 10060,
+          "deliveryBufferDays": -25,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 11.8
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE4",
+          "operator": "ONE",
+          "vessel": "ONE TRIUMPH",
+          "voyage": "OTRI0291W",
+          "direct": true,
+          "transitDays": 40,
+          "etd": "2026-09-04",
+          "eta": "2026-10-14",
+          "priceUSD": 5170,
+          "priceBasis": {
+            "anchorUsd": 5400,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -4.2
+          },
+          "totalUSD": 10340,
+          "deliveryBufferDays": -4,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 14.9
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE3",
+          "operator": "HMM",
+          "vessel": "HMM ROTTERDAM",
+          "voyage": "HROT0291W",
+          "direct": false,
+          "transitDays": 68,
+          "etd": "2026-09-04",
+          "eta": "2026-11-11",
+          "priceUSD": 4790,
+          "priceBasis": {
+            "anchorUsd": 4900,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -2.2
+          },
+          "totalUSD": 9580,
+          "deliveryBufferDays": -32,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 6.4
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE4",
+          "operator": "ONE",
+          "vessel": "ONE INTEGRITY",
+          "voyage": "OINT0292W",
+          "direct": true,
+          "transitDays": 40,
+          "etd": "2026-09-11",
+          "eta": "2026-10-21",
+          "priceUSD": 5630,
+          "priceBasis": {
+            "anchorUsd": 5400,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": 4.2
+          },
+          "totalUSD": 11260,
+          "deliveryBufferDays": -11,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 25.1
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE3",
+          "operator": "HMM",
+          "vessel": "HMM HAMBURG",
+          "voyage": "HHAM0292W",
+          "direct": false,
+          "transitDays": 68,
+          "etd": "2026-09-11",
+          "eta": "2026-11-18",
+          "priceUSD": 5010,
+          "priceBasis": {
+            "anchorUsd": 4900,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": 2.2
+          },
+          "totalUSD": 10020,
+          "deliveryBufferDays": -39,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 11.3
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE4",
+          "operator": "ONE",
+          "vessel": "ONE TRUST",
+          "voyage": "OTRU0293W",
+          "direct": true,
+          "transitDays": 40,
+          "etd": "2026-09-18",
+          "eta": "2026-10-28",
+          "priceUSD": 5660,
+          "priceBasis": {
+            "anchorUsd": 5400,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": 4.8
+          },
+          "totalUSD": 11320,
+          "deliveryBufferDays": -18,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 25.8
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE3",
+          "operator": "HMM",
+          "vessel": "HMM STOCKHOLM",
+          "voyage": "HSTO0293W",
+          "direct": false,
+          "transitDays": 68,
+          "etd": "2026-09-18",
+          "eta": "2026-11-25",
+          "priceUSD": 4610,
+          "priceBasis": {
+            "anchorUsd": 4900,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -6
+          },
+          "totalUSD": 9220,
+          "deliveryBufferDays": -46,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 2.4
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE4",
+          "operator": "ONE",
+          "vessel": "ONE FUTURE",
+          "voyage": "OFUT0294W",
+          "direct": true,
+          "transitDays": 40,
+          "etd": "2026-09-25",
+          "eta": "2026-11-04",
+          "priceUSD": 5380,
+          "priceBasis": {
+            "anchorUsd": 5400,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -0.3
+          },
+          "totalUSD": 10760,
+          "deliveryBufferDays": -25,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 19.6
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE3",
+          "operator": "HMM",
+          "vessel": "HMM OSLO",
+          "voyage": "HOSL0294W",
+          "direct": false,
+          "transitDays": 68,
+          "etd": "2026-09-25",
+          "eta": "2026-12-02",
+          "priceUSD": 4650,
+          "priceBasis": {
+            "anchorUsd": 4900,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -5.1
+          },
+          "totalUSD": 9300,
+          "deliveryBufferDays": -53,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 3.3
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE4",
+          "operator": "ONE",
+          "vessel": "ONE TRIBUTE",
+          "voyage": "OTRI0295W",
+          "direct": true,
+          "transitDays": 40,
+          "etd": "2026-10-02",
+          "eta": "2026-11-11",
+          "priceUSD": 5180,
+          "priceBasis": {
+            "anchorUsd": 5400,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -4.1
+          },
+          "totalUSD": 10360,
+          "deliveryBufferDays": -32,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 15.1
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE3",
+          "operator": "HMM",
+          "vessel": "HMM LE HAVRE",
+          "voyage": "HLEX0295W",
+          "direct": false,
+          "transitDays": 68,
+          "etd": "2026-10-02",
+          "eta": "2026-12-09",
+          "priceUSD": 4910,
+          "priceBasis": {
+            "anchorUsd": 4900,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": 0.2
+          },
+          "totalUSD": 9820,
+          "deliveryBufferDays": -60,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 9.1
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE4",
+          "operator": "ONE",
+          "vessel": "ONE TRIUMPH",
+          "voyage": "OTRI0296W",
+          "direct": true,
+          "transitDays": 40,
+          "etd": "2026-10-09",
+          "eta": "2026-11-18",
+          "priceUSD": 5380,
+          "priceBasis": {
+            "anchorUsd": 5400,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -0.4
+          },
+          "totalUSD": 10760,
+          "deliveryBufferDays": -39,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 19.6
+        },
+        {
+          "routeCode": "KNEI",
+          "service": "FE3",
+          "operator": "HMM",
+          "vessel": "HMM SOUTHAMPTON",
+          "voyage": "HSOU0296W",
+          "direct": false,
+          "transitDays": 68,
+          "etd": "2026-10-09",
+          "eta": "2026-12-16",
+          "priceUSD": 4640,
+          "priceBasis": {
+            "anchorUsd": 4900,
+            "kcciAtEtd": 4900,
+            "kcciNow": 4900,
+            "marketRatio": 1,
+            "jitterPct": -5.4
+          },
+          "totalUSD": 9280,
+          "deliveryBufferDays": -67,
+          "meetsRequired": false,
+          "meetsBuffer": false,
+          "bufferShortfallDays": 0,
+          "withinTsPref": true,
+          "feasible": false,
+          "comfortable": false,
+          "vsBudgetPct": 3.1
+        }
+      ],
+      "cheapestFeasible": {
+        "routeCode": "KNEI",
+        "service": "FE4",
+        "operator": "ONE",
+        "vessel": "ONE TRIBUTE",
+        "voyage": "OTRI0290W",
+        "direct": true,
+        "transitDays": 40,
+        "etd": "2026-08-28",
+        "eta": "2026-10-07",
+        "priceUSD": 5240,
+        "priceBasis": {
+          "anchorUsd": 5400,
+          "kcciAtEtd": 4900,
+          "kcciNow": 4900,
+          "marketRatio": 1,
+          "jitterPct": -2.9
+        },
+        "totalUSD": 10480,
+        "deliveryBufferDays": 3,
+        "meetsRequired": true,
+        "meetsBuffer": false,
+        "bufferShortfallDays": 4,
+        "withinTsPref": true,
+        "feasible": true,
+        "comfortable": false,
+        "vsBudgetPct": 16.4
+      },
+      "earliestFeasible": {
+        "routeCode": "KNEI",
+        "service": "FE4",
+        "operator": "ONE",
+        "vessel": "ONE TRIBUTE",
+        "voyage": "OTRI0290W",
+        "direct": true,
+        "transitDays": 40,
+        "etd": "2026-08-28",
+        "eta": "2026-10-07",
+        "priceUSD": 5240,
+        "priceBasis": {
+          "anchorUsd": 5400,
+          "kcciAtEtd": 4900,
+          "kcciNow": 4900,
+          "marketRatio": 1,
+          "jitterPct": -2.9
+        },
+        "totalUSD": 10480,
+        "deliveryBufferDays": 3,
+        "meetsRequired": true,
+        "meetsBuffer": false,
+        "bufferShortfallDays": 4,
+        "withinTsPref": true,
+        "feasible": true,
+        "comfortable": false,
+        "vsBudgetPct": 16.4
+      }
+    },
+    "timing": {
+      "lean": "BOOK_NOW",
+      "elevated": true,
+      "depressed": false,
+      "rising": true,
+      "falling": false,
+      "feasibleFewness": true,
+      "noComfort": true,
+      "latestFeasibleEtd": "2026-08-28",
+      "signals": [
+        "운임이 최근 1년 상위 4% 수준(백분위 96)으로 역사적 고점권",
+        "12주 추세 +1.21%/주로 상승 중 — 미루면 더 비싸질 위험",
+        "하드 납기를 지키는 항차가 1개뿐 — 선택지가 좁아 미루기 어려움",
+        "납기는 지키되 선호 버퍼(7일)를 만족하는 항차는 없음 — 최선도 버퍼 4일 부족"
+      ]
+    },
+    "dataSources": {
+      "kcci": "bundled(demo)",
+      "company": "bundled(demo)",
+      "news": 0
+    }
+  },
+  "recommendation": {
+    "verdict": "지금 잡으세요 — 미룰 장이 아닙니다",
+    "stance": "BOOK_NOW",
+    "confidence": "HIGH",
+    "recommendedSailing": {
+      "vessel": "ONE TRIBUTE",
+      "operator": "ONE",
+      "service": "FE4",
+      "etd": "2026-08-28",
+      "eta": "2026-10-07",
+      "priceUSDPerFeu": 5240,
+      "why": "하드 납기(2026-10-10)를 지키는 유일한 직항 항차"
+    },
+    "narrative": "북유럽 항로 운임은 지금 KCCI 4,900pt로, 최근 1년 구간에서 상위 4%(백분위 96)에 놓인 역사적 고점권입니다. 전년 대비 +96.8%, 저점 대비 +89.8% 올라온 자리이고 12주 추세도 여전히 주당 +1.21%로 상승 중입니다. 냉정히 말해 \"쌀 때 실어보내는\" 국면은 아니며, 미룰수록 유리해질 그림도 아닙니다.\n\n그렇다고 이번 건이 비싼 계약이라는 뜻은 아닙니다. 귀사의 가장 최근 실거래가는 FEU당 $4,140였고, 그 사이 항로 지수가 +23.5% 올랐으니 같은 조건의 오늘 공정가는 약 $5,112/FEU로 환산됩니다. 지금 확보 가능한 현물은 $5,240/FEU로 그 공정가에 근접하고, 책정하신 예산 $4,500/FEU보다는 -14.1% 높은 수준입니다. 예산은 다소 공격적이지만 시장·자사 기준 모두에서 \"말이 되는\" 범위 안에 있습니다.\n\n핵심은 타이밍입니다. 화물 준비일 2026-08-24에서 납기 2026-10-10까지의 창이 좁아, 하드 납기를 지키는 항차는 ONE TRIBUTE(FE4 직항, ETD 2026-08-28 → ETA 2026-10-07) 단 한 편뿐입니다. 이 배가 도착 여유 3일로 마감을 겨우 지키며, 환적 서비스(FE3)는 60~70일대라 아예 납기를 넘깁니다. 다음 직항편은 납기를 초과합니다. 즉 \"관망\"이라는 선택지 자체가 사실상 없습니다.\n\n버퍼가 3일로 얇은 만큼 포워더 선택이 곧 리스크 관리입니다. 자사 이력상 Bluewave Logistics(Maersk)는 평균 지연 1.2일·정시율 80%로 안정적이지만, HarborLink(Hapag-Lloyd)는 평균 4.3일 지연·정시율 0%로, 그 지연폭만으로도 3일 버퍼를 삼켜 납기를 놓칠 수 있습니다. Bluewave Logistics로 진행하고, 자사 공정가 $5,112를 근거로 $5,000선까지 재견적을 요청하십시오.",
+    "keyNumbers": [
+      {
+        "label": "북유럽 KCCI",
+        "value": "4,900pt",
+        "note": "최근 1년 상위 4% (백분위 96)"
+      },
+      {
+        "label": "연간 상승",
+        "value": "+96.8%",
+        "note": "저점 대비 +89.8%, 12주 +10.6%"
+      },
+      {
+        "label": "추천 운임",
+        "value": "$5,240/FEU",
+        "note": "자사 공정가 $5,112·예산 $4,500 사이"
+      },
+      {
+        "label": "납기 버퍼",
+        "value": "3일",
+        "note": "하드 납기 충족 항차는 이 1편뿐"
+      },
+      {
+        "label": "12주 추세",
+        "value": "+1.21%/주",
+        "note": "상승 중 — 미루면 더 오름"
+      }
+    ],
+    "actions": [
+      "ONE TRIBUTE(FE4, ETD 2026-08-28) 부킹 슬롯을 오늘 확보하고 DOC 컷오프 역산해 서류 준비 착수",
+      "Bluewave Logistics로 진행(정시율 80%, 평균 1.2일) — HarborLink는 3일 버퍼에 위험",
+      "자사 시장연동 공정가 $5,112/FEU를 근거로 목표가 재견적 요청"
+    ],
+    "risks": [
+      "도착 여유가 3일뿐 — 항만 혼잡·롤오버 시 2026-10-10 납기 실패 위험. 롤오버 방지(no-roll) 조건 확보 권장",
+      "운임이 역사적 고점권이라 단기 반락 가능성은 있으나, 납기상 그 하락을 기다릴 여유가 없음"
+    ],
+    "watchTriggers": [
+      "북유럽 KCCI가 다음 주 -5% 이상 급락하고 화물 준비일을 앞당길 수 있으면 재검토",
+      "ONE TRIBUTE 슬롯 마감 시 차선 직항이 없음 → 항공·특송 대체 즉시 검토"
+    ],
+    "nextReviewDate": "2026-07-23",
+    "_note": "데모 스냅샷(배포 시 Bedrock가 동일 스키마로 생성). 모든 수치는 결정론 브리프에서 파생."
+  }
+}

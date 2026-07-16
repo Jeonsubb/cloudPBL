@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PortPulse — 실시간 스케줄</title>
+<link rel="stylesheet" href="common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="headerMount"></div>
+  <div id="navMount"></div>
+
+  <div class="section-title">실시간 스케줄 · 참고 운임 <span class="sub">· 부산 출발 전 항로</span></div>
+  <div id="schedStrip"></div>
+  <div class="sched-disclaimer">* 스케줄(선사·선박명·ETD·ETA)은 hmm21.com 공개 스케줄 조회 실측값입니다. 운임은 확정운임이 아니며, 항로별 앵커가(Freightos 스냅샷 또는 항로 특성 추정)에 ± 랜덤 변동을 적용한 참고 추정치로 물류 시황이나 실제 계약 조건에 따라 달라질 수 있습니다.</div>
+
+  <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
+</div>
+
+<button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
+<div id="chatPanel">
+  <div class="chat-head">
+    <div>
+      <div class="title">🤖 PortPulse 어시스턴트</div>
+      <div class="sub">시장·뉴스·선적 현황 기반 · AI 참고 의견</div>
+    </div>
+    <button type="button" id="chatCloseBtn" aria-label="닫기">×</button>
+  </div>
+  <div class="chat-body" id="chatBody"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="예: 오늘 KCCI 어때? 긴급한 선적 있어?" />
+    <button type="button" id="chatSendBtn">➤</button>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+function main() {
+  renderBrandHeader();
+  renderNav("schedule");
+  document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
+  document.getElementById("updated").textContent = "실제 공개 스케줄 조회 기반 · 관측일 2026-07-16";
+  initChat();
+  renderSchedCards("schedStrip");
+}
+main();
+</script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PortPulse — AI 선적 추천</title>
+<link rel="stylesheet" href="common.css" />
+</head>
+<body>
+<div class="wrap">
+  <div id="headerMount"></div>
+  <div id="navMount"></div>
+
+  <div class="section-title">회사 데이터 연결</div>
+  <div class="connect" id="connectPanel">
+    <div class="connect-row">
+      <div class="connect-item">
+        <div class="connect-icon empty" id="excelIcon">📄</div>
+        <div class="connect-text">
+          <div class="ct-label" id="excelLabel">엑셀 미업로드</div>
+          <div class="ct-sub">정책·과거실적(+선택: 현재선적) · PortPulse_Company_Input_Template.xlsx</div>
+        </div>
+      </div>
+      <button type="button" class="connect-btn primary" id="excelUploadBtn">엑셀 업로드</button>
+      <input type="file" id="excelFileInput" accept=".xlsx" />
+      <span class="connect-sep"></span>
+      <div class="connect-item">
+        <div class="connect-icon empty" id="curIcon">🚢</div>
+        <div class="connect-text">
+          <div class="ct-label" id="curLabel">현재 선적 미입력</div>
+          <div class="ct-sub" id="curSub">엑셀 없이 이번 선적 정보만 바로 입력할 수도 있어요</div>
+        </div>
+      </div>
+      <button type="button" class="connect-btn" id="curFormToggleBtn">이번 선적 정보 입력/수정</button>
+      <span class="connect-status" id="connectStatusMsg"></span>
+    </div>
+
+    <!-- 이 폼은 "견적/추천을 받기 위해 필요한 화물 정보"만 받는다.
+         주문번호·선적ID·고객사명 같은 사내 참조번호는 없다 — 저장 시 자동 채번된다. -->
+    <form class="cform" id="curForm">
+      <div class="cform-hint">견적에 필요한 화물 정보만 입력하면 됩니다. 사내 주문번호·거래처명 등은 필요 없어요.</div>
+      <div class="cform-grid">
+        <div><label>출발지(POL)</label><input name="pol" placeholder="Busan, KR" value="Busan, KR" required></div>
+        <div><label>도착지(POD)</label><input name="pod" placeholder="Hamburg, DE" required></div>
+        <div><label>최종 배송지</label><input name="deliveryLocation" placeholder="Hamburg DC, DE"></div>
+        <div><label>화물 준비일</label><input type="date" name="cargoReadyDate" required></div>
+        <div><label>납기일</label><input type="date" name="requiredDeliveryDate" required></div>
+        <div><label>장비</label>
+          <select name="equipment"><option>40HC</option><option>40GP</option><option>20GP</option><option>20RF</option></select>
+        </div>
+        <div><label>컨테이너 수</label><input type="number" name="containerCount" min="1" value="1" required></div>
+        <div><label>화물종류</label>
+          <select name="cargoType"><option>DRY</option><option>REEFER</option><option>HAZMAT</option></select>
+        </div>
+        <div><label>품명</label><input name="commodityDescription" placeholder="Finished home organization products"></div>
+        <div><label>중량(kg)</label><input type="number" name="grossWeightKg" min="0" placeholder="18720"></div>
+        <div><label>부피(CBM)</label><input type="number" name="volumeCbm" min="0" step="0.1" placeholder="67.4"></div>
+        <div><label>예산 총액</label><input type="number" name="budgetAmount" min="0" placeholder="9000" required></div>
+        <div><label>예산 통화</label>
+          <select name="budgetCurrency"><option>USD</option><option>KRW</option><option>EUR</option></select>
+        </div>
+        <div><label>인코텀즈</label>
+          <select name="incoterms"><option>FOB</option><option>CFR</option><option>CIF</option><option>CPT</option><option>EXW</option></select>
+        </div>
+        <div><label>부킹 통제</label>
+          <select name="freightPayer"><option>EXPORTER</option><option>BUYER</option><option>THIRD_PARTY</option></select>
+        </div>
+      </div>
+      <div class="cform-actions">
+        <button type="submit" class="connect-btn primary">저장하고 추천 새로고침</button>
+        <button type="button" class="connect-btn" id="curFormCancelBtn">취소</button>
+        <span class="cform-msg" id="cformMsg"></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="section-title">AI 선적 추천 <span class="sub">· 회사 데이터 × 시황 × 실제 스케줄</span></div>
+  <div id="recoMount"><div class="reco"><div class="reco-loading">추천 분석 중…</div></div></div>
+
+  <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
+</div>
+
+<button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
+<div id="chatPanel">
+  <div class="chat-head">
+    <div>
+      <div class="title">🤖 PortPulse 어시스턴트</div>
+      <div class="sub">시장·뉴스·선적 현황 기반 · AI 참고 의견</div>
+    </div>
+    <button type="button" id="chatCloseBtn" aria-label="닫기">×</button>
+  </div>
+  <div class="chat-body" id="chatBody"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="예: 오늘 KCCI 어때? 긴급한 선적 있어?" />
+    <button type="button" id="chatSendBtn">➤</button>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+function main() {
+  renderBrandHeader();
+  renderNav("reco");
+  document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
+  document.getElementById("updated").textContent = "회사 데이터를 연결하면 추천이 그 데이터로 갱신됩니다";
+  initChat();
+  initConnectPanel(() => loadRecommendation("recoMount", false, true));
+  loadRecommendation("recoMount", false);
+}
+main();
+</script>
+</body>
+</html>

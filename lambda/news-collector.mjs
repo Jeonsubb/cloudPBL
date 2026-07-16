@@ -5,6 +5,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { NEWS_SOURCES } from "./news-sources.mjs";
 import { scoreTitle } from "./news-score.mjs";
+import { dedupeRecent } from "./news-dedupe.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const BATCH_SIZE = 25;
@@ -35,6 +36,10 @@ function parseRss(xml) {
 function articleId(link) {
   const idxno = link.match(/idxno=(\d+)/);
   return idxno ? idxno[1] : Buffer.from(link).toString("base64url").slice(0, 40);
+}
+
+function todayKst() {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 async function batchWrite(tableName, items) {
@@ -80,6 +85,16 @@ export async function handler() {
       summary.push({ source: src.id, error: err.message });
     }
   }
-  console.log(JSON.stringify({ summary }));
-  return { ok: true, summary };
+  // 이번 주기에 새로 들어온(또는 갱신된) 후보를 대상으로 중복 그룹을 다시 계산한다.
+  // PutRequest는 아이템 전체를 덮어써서 이전에 붙였던 duplicate 플래그도 함께 사라지므로
+  // 매 수집 주기마다 다시 계산해야 정확하다.
+  let dedupe = null;
+  try {
+    dedupe = await dedupeRecent(tableName, todayKst());
+  } catch (err) {
+    dedupe = { error: err.message };
+  }
+
+  console.log(JSON.stringify({ summary, dedupe }));
+  return { ok: true, summary, dedupe };
 }

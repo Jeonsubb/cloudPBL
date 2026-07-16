@@ -48,7 +48,7 @@ async function fetchNewsCandidates(tableName, date, limit, lookbackDays = 2) {
   );
   return perDate
     .flatMap((r) => r.Items ?? [])
-    .filter((it) => (it.score ?? 0) > 0)
+    .filter((it) => (it.score ?? 0) > 0 && !it.duplicate)
     .sort((a, b) => b.score - a.score || b.pubDate.localeCompare(a.pubDate))
     .slice(0, limit)
     .map(({ title, source, pubDate, link }) => ({ title, source, pubDate, link }));

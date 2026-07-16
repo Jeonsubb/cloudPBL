@@ -18,7 +18,7 @@ function response(statusCode, body) {
 }
 
 export async function handler(event) {
-  const tableName = process.env.TABLE_NAME;
+  const tableName = process.env.MARKET_TABLE_NAME;
   const seriesId = event.pathParameters?.seriesId;
 
   if (!seriesId) {
