@@ -218,6 +218,8 @@ export class MarketStack extends Stack {
     apiQuery.addToRolePolicy(
       new PolicyStatement({ actions: ["bedrock:InvokeModel", "bedrock:Converse"], resources: ["*"] }),
     );
+    // /shipments/{id}/advisor는 에이전트를 호출한다(Converse 정책은 recommend.mjs의 JSON 강제 생성용으로 유지).
+    agent.grantInvoke(apiQuery);
 
     // 추천 재평가 모니터 — 매일 현재 선적을 다시 평가해 stance가 바뀌면 텔레그램 알림.
     const recoMonitor = new LambdaFunction(this, "RecoMonitor", {
