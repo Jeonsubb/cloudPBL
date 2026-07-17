@@ -47,7 +47,8 @@ async function loadCurrentOverride() {
   } catch { return null; }
 }
 
-async function loadCompany() {
+// 회사 데이터 로드 — 에이전트 도구(agent-tools.mjs)도 같은 우선순위(UI폼>엑셀>번들)를 써야 해서 export.
+export async function loadCompany() {
   const fallback = bundled("./sample-company.json");
   let base = fallback;
   let currentSource = "bundled";
