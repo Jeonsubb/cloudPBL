@@ -255,30 +255,22 @@ export class MarketStack extends Stack {
       targets: [new LambdaTarget(recoMonitor)],
     });
 
-    // 플로팅 챗봇(오른쪽 하단) — 시장 스냅샷 + 뉴스 + 샘플 포트폴리오를 컨텍스트로 답변.
-    // RAG/회사 문서 연동은 다음 단계(현재는 대시보드에 이미 있는 데이터만 근거로 삼음).
+    // 플로팅 챗봇(오른쪽 하단) — Bedrock Agent 호출부. 데이터 접근은 전부 에이전트의 도구
+    // Lambda(agent-tools)가 하므로 이 함수엔 테이블 권한이 없다(InvokeAgent만).
     const chatFn = new LambdaFunction(this, "ChatBot", {
       functionName: "portpulse-chat",
       runtime: Runtime.NODEJS_22_X,
       handler: "chat.handler",
       code: Code.fromAsset(lambdaDir),
-      timeout: Duration.seconds(60),
+      // 에이전트가 도구를 여러 번 호출할 수 있어 직접 Converse보다 오래 걸린다 — 90초로 여유.
+      timeout: Duration.seconds(90),
       memorySize: 256,
       logGroup: new LogGroup(this, "ChatBotLogs", {
         retention: RetentionDays.ONE_MONTH,
         removalPolicy: RemovalPolicy.DESTROY,
       }),
-      environment: {
-        MARKET_TABLE_NAME: table.tableName,
-        NEWS_TABLE_NAME: newsTable.tableName,
-        BEDROCK_MODEL_ID: "global.anthropic.claude-opus-4-5-20251101-v1:0",
-      },
     });
-    table.grantReadData(chatFn);
-    newsTable.grantReadData(chatFn);
-    chatFn.addToRolePolicy(
-      new PolicyStatement({ actions: ["bedrock:InvokeModel", "bedrock:Converse"], resources: ["*"] }),
-    );
+    agent.grantInvoke(chatFn);
 
     const httpApi = new HttpApi(this, "MarketApi", {
       apiName: "portpulse-market-api",
