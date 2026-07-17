@@ -10,6 +10,7 @@ import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Bucket, BlockPublicAccess, HttpMethods } from "aws-cdk-lib/aws-s3";
 import { fileURLToPath } from "node:url";
+import { PortpulseAgent } from "./portpulse-agent.mjs";
 
 const lambdaDir = fileURLToPath(new URL("../../lambda", import.meta.url));
 
@@ -175,6 +176,18 @@ export class MarketStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Bedrock Agent — 챗봇·어드바이저가 호출하는 도구 사용형 에이전트.
+    // 도구 Lambda(agent-tools)·지침·액션그룹·별칭(live)을 portpulse-agent.mjs가 묶어서 만든다.
+    const agent = new PortpulseAgent(this, "PortpulseAgent", {
+      lambdaDir,
+      marketTable: table,
+      newsTable,
+      recoTable,
+      companyBucket,
+      companyKey,
+      modelId: process.env.BEDROCK_AGENT_MODEL_ID ?? "global.anthropic.claude-opus-4-5-20251101-v1:0",
+    });
+
     // 읽기 전용 조회 + AI 추천 통합: /series · /news/top · /shipments · /recommendations.
     // 넷 다 "API Gateway → (DB/Bedrock) → 응답"인 동일 트리거·패턴이라 한 Lambda로 합쳤다(api.mjs가 경로로 위임).
     // 수집기(Ecos/Kcci/News)는 스케줄·외부 API가 서로 달라 여기 합치지 않고 분리 유지.
@@ -302,6 +315,9 @@ export class MarketStack extends Stack {
     new CfnOutput(this, "CompanyBucketName", { value: companyBucket.bucketName });
     new CfnOutput(this, "RecoTableName", { value: recoTable.tableName });
     new CfnOutput(this, "RecoMonitorName", { value: recoMonitor.functionName });
+    new CfnOutput(this, "AgentId", { value: agent.agentId });
+    new CfnOutput(this, "AgentAliasId", { value: agent.aliasId });
+    new CfnOutput(this, "AgentToolsName", { value: agent.toolsFunction.functionName });
     new CfnOutput(this, "ApiUrl", { value: httpApi.apiEndpoint });
   }
 }
