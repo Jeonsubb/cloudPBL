@@ -9,12 +9,14 @@ import { handler as newsHandler } from "./news-query.mjs";
 import { handler as shipmentHandler } from "./shipment-query.mjs";
 import { handler as recommendHandler } from "./recommend.mjs";
 import { handler as companyUploadHandler } from "./company-upload.mjs";
+import { handler as scheduleHandler } from "./schedule-query.mjs";
 
 export async function handler(event) {
   const path = event.rawPath || event.requestContext?.http?.path || "";
   if (path.startsWith("/news")) return newsHandler(event);
   if (path.startsWith("/recommendations")) return recommendHandler(event);
   if (path.startsWith("/company") || path === "/shipments/current") return companyUploadHandler(event);
+  if (path.startsWith("/schedule")) return scheduleHandler(event);
   if (path.startsWith("/shipments")) return shipmentHandler(event);
   return marketHandler(event);
 }

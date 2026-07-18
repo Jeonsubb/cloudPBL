@@ -14,6 +14,14 @@ const PORT_ALIASES = {
   "singapore": "SGSIN", "singapore, sg": "SGSIN", "sgsin": "SGSIN",
   "shanghai": "CNSHA", "shanghai, cn": "CNSHA", "cnsha": "CNSHA",
   "tokyo": "JPTYO", "tokyo, jp": "JPTYO", "jptyo": "JPTYO",
+  "barcelona": "ESBCN", "barcelona, es": "ESBCN", "esbcn": "ESBCN",
+  "jebel ali": "AEJEA", "jebel ali, ae": "AEJEA", "aejea": "AEJEA",
+  "sydney": "AUSYD", "sydney, au": "AUSYD", "ausyd": "AUSYD",
+  "santos": "BRSSZ", "santos, br": "BRSSZ", "brssz": "BRSSZ",
+  "manzanillo": "MXZLO", "manzanillo, mx": "MXZLO", "mxzlo": "MXZLO",
+  "durban": "ZADUR", "durban, za": "ZADUR", "zadur": "ZADUR",
+  "lagos": "NGLOS", "lagos, ng": "NGLOS", "nglos": "NGLOS",
+  "tema": "GHTEM", "tema, gh": "GHTEM", "ghtem": "GHTEM",
 };
 
 // 목적항 LOCODE → KCCI 세부항로 코드
@@ -23,7 +31,14 @@ const POD_TO_ROUTE = {
   USNYC: "KUEI",                          // 미주동안
   SGSIN: "KSEI",                          // 동남아
   CNSHA: "KCI",                           // 중국
-  JPTYO: "KJI",                           // 일본(근해선사 영역 — 스케줄 커버 없음)
+  JPTYO: "KJI",                           // 일본
+  ESBCN: "KMDI",                          // 지중해
+  AEJEA: "KMEI",                          // 중동
+  AUSYD: "KAUI",                          // 오세아니아
+  BRSSZ: "KLEI",                          // 중남미동안
+  MXZLO: "KLWI",                          // 중남미서안
+  ZADUR: "KSAI",                          // 남아공(ShipDa 스케줄 커버 없음 — synthetic 폴백)
+  NGLOS: "KWAI", GHTEM: "KWAI",           // 서아공(ShipDa 스케줄 커버 없음 — synthetic 폴백)
 };
 
 const LOCODE_LABEL = {
@@ -32,11 +47,17 @@ const LOCODE_LABEL = {
   USLGB: { name: "Long Beach", cc: "US" }, USLAX: { name: "Los Angeles", cc: "US" },
   USNYC: { name: "New York", cc: "US" }, SGSIN: { name: "Singapore", cc: "SG" },
   CNSHA: { name: "Shanghai", cc: "CN" }, JPTYO: { name: "Tokyo", cc: "JP" },
+  ESBCN: { name: "Barcelona", cc: "ES" }, AEJEA: { name: "Jebel Ali", cc: "AE" },
+  AUSYD: { name: "Sydney", cc: "AU" }, BRSSZ: { name: "Santos", cc: "BR" },
+  MXZLO: { name: "Manzanillo", cc: "MX" }, ZADUR: { name: "Durban", cc: "ZA" },
+  NGLOS: { name: "Lagos", cc: "NG" }, GHTEM: { name: "Tema", cc: "GH" },
 };
 
 const ROUTE_LABEL = {
   KUWI: "미주서안", KUEI: "미주동안", KNEI: "북유럽", KMDI: "지중해",
   KSEI: "동남아", KCI: "중국", KJI: "일본",
+  KMEI: "중동", KAUI: "오세아니아", KLEI: "중남미동안", KLWI: "중남미서안",
+  KSAI: "남아공", KWAI: "서아공",
 };
 
 export function toLocode(cityOrCode) {

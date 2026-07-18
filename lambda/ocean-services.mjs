@@ -77,13 +77,19 @@ export const SERVICES = [
   },
 ];
 
-// 항로별 대표 도착항(데모 표시용) — 실제 서비스가 커버하는 대표 POD.
+// 항로별 대표 도착항(스케줄 카드 표시용) — ShipDa 실제 커버리지 조사(2026-07)에서 확인한 대표 POD.
 export const ROUTE_PODS = {
   KNEI: [{ code: "DEHAM", name: "Hamburg", cc: "DE" }, { code: "NLRTM", name: "Rotterdam", cc: "NL" }],
   KUWI: [{ code: "USLGB", name: "Long Beach", cc: "US" }],
   KUEI: [{ code: "USNYC", name: "New York", cc: "US" }],
   KSEI: [{ code: "SGSIN", name: "Singapore", cc: "SG" }],
   KCI: [{ code: "CNSHA", name: "Shanghai", cc: "CN" }],
+  KJI: [{ code: "JPTYO", name: "Tokyo", cc: "JP" }],
+  KMDI: [{ code: "ESBCN", name: "Barcelona", cc: "ES" }],
+  KMEI: [{ code: "AEJEA", name: "Jebel Ali", cc: "AE" }],
+  KAUI: [{ code: "AUSYD", name: "Sydney", cc: "AU" }],
+  KLEI: [{ code: "BRSSZ", name: "Santos", cc: "BR" }],
+  KLWI: [{ code: "MXZLO", name: "Manzanillo", cc: "MX" }],
 };
 
 export function servicesForRoute(routeCode) {

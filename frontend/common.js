@@ -589,39 +589,15 @@ async function loadRecommendation(mountId = "recoMount", compact = false, force 
 }
 
 /* ---------- 실시간 스케줄 · 참고 운임 ----------
-   스케줄(operator/vessel/etd/eta/direct)은 hmm21.com 공개 스케줄 조회 실측값(2026-07-16 관측).
-   priceUSD는 실거래가 아님 — 항로별 앵커가(Freightos 스냅샷 또는 항로 특성 추정) ± 랜덤%를 적용한 참고 추정치. */
-const SCHEDULE_CARDS = [
-  { originName: "Busan", destName: "Long Beach", destCC: "US",
-    sailings: [
-      { vessel: "SM KWANGYANG", operator: "SML", etd: "2026-07-23", eta: "2026-08-03", direct: true, priceUSD: 6760 },
-      { vessel: "HMM DAON", operator: "HMM", etd: "2026-07-30", eta: "2026-08-13", direct: true, priceUSD: 7420 },
-      { vessel: "ONE FORTUNE", operator: "ONE", etd: "2026-08-06", eta: "2026-08-19", direct: true, priceUSD: 7850 },
-    ] },
-  { originName: "Busan", destName: "New York", destCC: "US",
-    sailings: [
-      { vessel: "HMM AMETHYST", operator: "HMM", etd: "2026-07-20", eta: "2026-08-28", direct: true, priceUSD: 8930 },
-      { vessel: "YM TRANQUILITY", operator: "YML", etd: "2026-07-29", eta: "2026-08-24", direct: true, priceUSD: 9760 },
-      { vessel: "HMM VICTORY", operator: "HMM", etd: "2026-07-29", eta: "2026-09-04", direct: true, priceUSD: 8460 },
-    ] },
-  { originName: "Busan", destName: "Rotterdam", destCC: "NL",
-    sailings: [
-      { vessel: "ONE TRIBUTE", operator: "ONE", etd: "2026-07-21", eta: "2026-08-23", direct: true, priceUSD: 5410 },
-      { vessel: "HMM OSLO", operator: "HMM", etd: "2026-07-23", eta: "2026-09-29", direct: false, priceUSD: 4930 },
-      { vessel: "ONE TRIUMPH", operator: "ONE", etd: "2026-07-26", eta: "2026-08-29", direct: true, priceUSD: 5720 },
-    ] },
-  { originName: "Busan", destName: "Singapore", destCC: "SG",
-    sailings: [
-      { vessel: "SEASPAN BRILLIANCE", operator: "HMM", etd: "2026-07-19", eta: "2026-08-03", direct: true, priceUSD: 900 },
-      { vessel: "HMM OCEAN", operator: "HMM", etd: "2026-07-22", eta: "2026-08-07", direct: true, priceUSD: 1010 },
-    ] },
-  { originName: "Busan", destName: "Shanghai", destCC: "CN",
-    sailings: [
-      { vessel: "HMM JUNIPER", operator: "HMM", etd: "2026-07-21", eta: "2026-07-24", direct: true, priceUSD: 270 },
-      { vessel: "HMM TURQUOISE", operator: "HMM", etd: "2026-07-23", eta: "2026-07-31", direct: true, priceUSD: 310 },
-      { vessel: "SM JAKARTA", operator: "SML", etd: "2026-08-03", eta: "2026-08-05", direct: true, priceUSD: 255 },
-    ] },
-];
+   스케줄(operator/vessel/etd/eta/direct)은 ShipDa 공개 스케줄 조회 API 실측값(/schedule, 매주 자동 재수집).
+   priceUSD는 실거래가 아님 — 항로별 KCCI 지수 앵커가 × 시장비율 × 항차별 지터(±6%)를 적용한 참고 추정치. */
+let scheduleCache = null;
+async function fetchSchedule() {
+  if (scheduleCache) return scheduleCache;
+  const data = await (await fetch(`${API_URL}/schedule`)).json();
+  scheduleCache = data.routes ?? [];
+  return scheduleCache;
+}
 function schedCardHtml(c) {
   return `
     <div class="sched-card">
@@ -651,16 +627,22 @@ function schedCardHtml(c) {
     </div>`;
 }
 // limit이 있으면 (전체 정렬된) 상위 N장만 홈 요약으로, 없으면 항로별로 그룹핑해 전체 렌더.
-function renderSchedCards(stripId, limit) {
+async function renderSchedCards(stripId, limit) {
   const strip = document.getElementById(stripId);
   if (!strip) return;
+  strip.innerHTML = `<div class="loading">불러오는 중…</div>`;
+  let routes;
+  try { routes = await fetchSchedule(); }
+  catch (e) { strip.innerHTML = `<div class="err">스케줄 조회 실패: ${e.message}</div>`; return; }
+  if (routes.length === 0) { strip.innerHTML = `<div class="err">조회 가능한 스케줄이 없습니다</div>`; return; }
+
   if (limit) {
-    const cards = SCHEDULE_CARDS.flatMap((route) => route.sailings.map((s) => ({ ...route, ...s })))
+    const cards = routes.flatMap((route) => route.sailings.map((s) => ({ ...route, ...s })))
       .sort((a, b) => a.etd.localeCompare(b.etd)).slice(0, limit);
     strip.innerHTML = cards.map(schedCardHtml).join("");
     return;
   }
-  strip.innerHTML = SCHEDULE_CARDS.map((route) => `
+  strip.innerHTML = routes.map((route) => `
     <div class="sched-group-title">${ccFlag("KR")} Busan → ${ccFlag(route.destCC)} ${route.destName}</div>
     <div class="sched-strip">${route.sailings.map((s) => schedCardHtml({ ...route, ...s })).join("")}</div>
   `).join("");

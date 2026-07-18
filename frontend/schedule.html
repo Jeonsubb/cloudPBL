@@ -13,7 +13,7 @@
 
   <div class="section-title">실시간 스케줄 · 참고 운임 <span class="sub">· 부산 출발 전 항로</span></div>
   <div id="schedStrip"></div>
-  <div class="sched-disclaimer">* 스케줄(선사·선박명·ETD·ETA)은 hmm21.com 공개 스케줄 조회 실측값입니다. 운임은 확정운임이 아니며, 항로별 앵커가(Freightos 스냅샷 또는 항로 특성 추정)에 ± 랜덤 변동을 적용한 참고 추정치로 물류 시황이나 실제 계약 조건에 따라 달라질 수 있습니다.</div>
+  <div class="sched-disclaimer">* 스케줄(선사·선박명·ETD·ETA)은 ShipDa 공개 스케줄 조회 API 실측값이며 매주 자동 재수집됩니다. 운임은 확정운임이 아니며, 항로별 KCCI 지수 앵커가에 시장비율·± 랜덤 변동을 적용한 참고 추정치로 물류 시황이나 실제 계약 조건에 따라 달라질 수 있습니다.</div>
 
   <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
 </div>
@@ -40,7 +40,7 @@ function main() {
   renderBrandHeader();
   renderNav("schedule");
   document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
-  document.getElementById("updated").textContent = "실제 공개 스케줄 조회 기반 · 관측일 2026-07-16";
+  document.getElementById("updated").textContent = "ShipDa 실시간 스케줄 조회 · 매주 자동 재수집";
   initChat();
   renderSchedCards("schedStrip");
 }

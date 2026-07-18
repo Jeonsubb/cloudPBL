@@ -227,6 +227,7 @@ export class MarketStack extends Stack {
         MARKET_TABLE_NAME: table.tableName,
         NEWS_TABLE_NAME: newsTable.tableName,
         RECO_TABLE_NAME: recoTable.tableName,
+        SCHEDULE_TABLE_NAME: scheduleTable.tableName,
         COMPANY_BUCKET: companyBucket.bucketName,
         COMPANY_KEY: companyKey,
         BEDROCK_MODEL_ID: "global.anthropic.claude-opus-4-5-20251101-v1:0",
@@ -235,6 +236,7 @@ export class MarketStack extends Stack {
     table.grantReadData(apiQuery);
     newsTable.grantReadData(apiQuery);
     recoTable.grantReadWriteData(apiQuery);
+    scheduleTable.grantReadData(apiQuery);
     companyBucket.grantReadWrite(apiQuery); // presigned PUT 발급 + /shipments/current 직접 저장
     apiQuery.addToRolePolicy(
       new PolicyStatement({ actions: ["bedrock:InvokeModel", "bedrock:Converse"], resources: ["*"] }),
@@ -256,6 +258,7 @@ export class MarketStack extends Stack {
         MARKET_TABLE_NAME: table.tableName,
         NEWS_TABLE_NAME: newsTable.tableName,
         RECO_TABLE_NAME: recoTable.tableName,
+        SCHEDULE_TABLE_NAME: scheduleTable.tableName,
         COMPANY_BUCKET: companyBucket.bucketName,
         COMPANY_KEY: companyKey,
         TELEGRAM_SECRET_NAME: telegramSecret.secretName,
@@ -265,6 +268,7 @@ export class MarketStack extends Stack {
     table.grantReadData(recoMonitor);
     newsTable.grantReadData(recoMonitor);
     recoTable.grantReadWriteData(recoMonitor);
+    scheduleTable.grantReadData(recoMonitor);
     companyBucket.grantRead(recoMonitor);
     telegramSecret.grantRead(recoMonitor);
     recoMonitor.addToRolePolicy(
@@ -320,6 +324,7 @@ export class MarketStack extends Stack {
     httpApi.addRoutes({ path: "/company/upload-url", methods: [HttpMethod.GET], integration: apiIntegration });
     httpApi.addRoutes({ path: "/company/status", methods: [HttpMethod.GET], integration: apiIntegration });
     httpApi.addRoutes({ path: "/shipments/current", methods: [HttpMethod.GET, HttpMethod.POST], integration: apiIntegration });
+    httpApi.addRoutes({ path: "/schedule", methods: [HttpMethod.GET], integration: apiIntegration });
 
     const chatIntegration = new HttpLambdaIntegration("ChatBotIntegration", chatFn);
     httpApi.addRoutes({ path: "/chat", methods: [HttpMethod.POST], integration: chatIntegration });

@@ -11,6 +11,12 @@ const DAY = 86_400_000;
 const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / DAY);
 const addDays = (iso, n) => new Date(new Date(iso).getTime() + n * DAY).toISOString().slice(0, 10);
 
+// 스케줄 조회 구간(ETD 기준) — 화물준비 1주 전 ~ 납기 이후 3주까지.
+// buildBrief 내부와, 호출부(recommend.mjs)가 실제 스케줄 DB를 미리 쿼리할 때 동일 기준을 쓰도록 export.
+export function scheduleWindow(current) {
+  return { from: addDays(current.cargoReadyDate, -7), to: addDays(current.requiredDeliveryDate, 21) };
+}
+
 /**
  * @param input.policy   회사 정책 행
  * @param input.current  현재 선적 행
@@ -18,10 +24,11 @@ const addDays = (iso, n) => new Date(new Date(iso).getTime() + n * DAY).toISOStr
  * @param input.kcci     { series: { [routeCode]: [{date,value}], KCCI: [...] }, compositeNow }
  * @param input.fx       { USD: [{date,value}], ... }  (선택)
  * @param input.baseRate [{date,value}] 기준금리 (선택)
+ * @param input.schedule 실제 스케줄(사전 조회, ETD 오름차순) — 없으면(null/undefined) synthetic 생성으로 폴백
  * @param input.asOf     기준일 ISO(KST)
  */
 export function buildBrief(input) {
-  const { policy, current, history, kcci, fx, baseRate, asOf } = input;
+  const { policy, current, history, kcci, fx, baseRate, schedule, asOf } = input;
   const route = resolveRoute(current.pol, current.pod);
   const routeSeries = route.routeCode ? kcci.series[route.routeCode] : null;
   const currentIndex = routeSeries?.at(-1)?.value ?? null;
@@ -37,12 +44,13 @@ export function buildBrief(input) {
   const fxUsd = fx?.USD ? fxStats(fx.USD) : null;
   const rate = baseRate?.at(-1) ?? null;
 
-  // ── 스케줄 생성(화물준비 1주 전 ~ 납기 이후 3주까지)
-  const windowFrom = addDays(current.cargoReadyDate, -7);
-  const windowTo = addDays(current.requiredDeliveryDate, 21);
-  const sailingsAll = route.routeCode
-    ? generateSailings(route.routeCode, { fromIso: windowFrom, toIso: windowTo, routeSeries })
-    : [];
+  // ── 스케줄: 실제 스케줄(schedule)이 있으면 그대로 쓰고, 없으면(미커버 항로 등) synthetic 생성으로 폴백
+  const { from: windowFrom, to: windowTo } = scheduleWindow(current);
+  const sailingsAll = schedule?.length
+    ? schedule
+    : route.routeCode
+      ? generateSailings(route.routeCode, { fromIso: windowFrom, toIso: windowTo, routeSeries })
+      : [];
 
   // 화물 준비일 이후 출항 가능한 것만(그 전엔 못 실음)
   const boardable = sailingsAll.filter((s) => s.etd >= current.cargoReadyDate);

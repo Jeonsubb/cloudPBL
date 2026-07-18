@@ -16,7 +16,9 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { buildBrief } from "./recommend-engine.mjs";
+import { buildBrief, scheduleWindow } from "./recommend-engine.mjs";
+import { resolveRoute } from "./route-map.mjs";
+import { loadRouteSchedule } from "./schedule-query.mjs";
 import { parseCompanyFromS3 } from "./company-input.mjs";
 import { CURRENT_SHIPMENT_KEY } from "./company-upload.mjs";
 
@@ -27,6 +29,7 @@ const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? "global.anthropic.claude-opus-4
 const MARKET_TABLE = process.env.MARKET_TABLE_NAME;
 const NEWS_TABLE = process.env.NEWS_TABLE_NAME;
 const RECO_TABLE = process.env.RECO_TABLE_NAME;
+const SCHEDULE_TABLE = process.env.SCHEDULE_TABLE_NAME;
 const COMPANY_BUCKET = process.env.COMPANY_BUCKET;
 const COMPANY_KEY = process.env.COMPANY_KEY ?? "current/company-input.xlsx";
 
@@ -216,12 +219,19 @@ export async function computeRecommendation({ store = true } = {}) {
   const [company, kcci, macro, news] = await Promise.all([loadCompany(), loadKcci(), loadMacro(), loadNewsHeadlines()]);
   if (!company?.current) throw new Error("현재 선적 데이터가 없습니다(엑셀 2_Current_Shipment 또는 현재 선적 폼 입력 필요).");
 
+  const route = resolveRoute(company.current.pol, company.current.pod);
+  const { from: windowFrom, to: windowTo } = scheduleWindow(company.current);
+  const schedule = route.routeCode ? await loadRouteSchedule(SCHEDULE_TABLE, route.routeCode, windowFrom, windowTo) : null;
+
   const brief = buildBrief({
     policy: company.policy, current: company.current, history: company.history,
     kcci: { series: kcci.series, compositeNow: kcci.compositeNow },
-    fx: { USD: macro.USD }, baseRate: macro.baseRate, asOf,
+    fx: { USD: macro.USD }, baseRate: macro.baseRate, schedule, asOf,
   });
-  brief.dataSources = { kcci: kcci.source, company: COMPANY_BUCKET ? "s3" : "bundled", currentShipmentSource: company.currentSource, news: news.length };
+  brief.dataSources = {
+    kcci: kcci.source, company: COMPANY_BUCKET ? "s3" : "bundled", currentShipmentSource: company.currentSource,
+    news: news.length, schedule: schedule?.length ? "shipda" : "synthetic",
+  };
 
   const recommendation = await generateRecommendation(brief, news);
   if (store) await storeRecommendation(brief, recommendation);
