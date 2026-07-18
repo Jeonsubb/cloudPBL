@@ -10,6 +10,7 @@ import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Bucket, BlockPublicAccess, HttpMethods } from "aws-cdk-lib/aws-s3";
 import { fileURLToPath } from "node:url";
+import { PortpulseAgent } from "./portpulse-agent.mjs";
 
 const lambdaDir = fileURLToPath(new URL("../../lambda", import.meta.url));
 
@@ -209,6 +210,18 @@ export class MarketStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Bedrock Agent — 챗봇·어드바이저가 호출하는 도구 사용형 에이전트.
+    // 도구 Lambda(agent-tools)·지침·액션그룹·별칭(live)을 portpulse-agent.mjs가 묶어서 만든다.
+    const agent = new PortpulseAgent(this, "PortpulseAgent", {
+      lambdaDir,
+      marketTable: table,
+      newsTable,
+      recoTable,
+      companyBucket,
+      companyKey,
+      modelId: process.env.BEDROCK_AGENT_MODEL_ID ?? "global.anthropic.claude-opus-4-5-20251101-v1:0",
+    });
+
     // 읽기 전용 조회 + AI 추천 통합: /series · /news/top · /shipments · /recommendations.
     // 넷 다 "API Gateway → (DB/Bedrock) → 응답"인 동일 트리거·패턴이라 한 Lambda로 합쳤다(api.mjs가 경로로 위임).
     // 수집기(Ecos/Kcci/News)는 스케줄·외부 API가 서로 달라 여기 합치지 않고 분리 유지.
@@ -241,6 +254,8 @@ export class MarketStack extends Stack {
     apiQuery.addToRolePolicy(
       new PolicyStatement({ actions: ["bedrock:InvokeModel", "bedrock:Converse"], resources: ["*"] }),
     );
+    // /shipments/{id}/advisor는 에이전트를 호출한다(Converse 정책은 recommend.mjs의 JSON 강제 생성용으로 유지).
+    agent.grantInvoke(apiQuery);
 
     // 추천 재평가 모니터 — 매일 현재 선적을 다시 평가해 stance가 바뀌면 텔레그램 알림.
     const recoMonitor = new LambdaFunction(this, "RecoMonitor", {
@@ -280,30 +295,22 @@ export class MarketStack extends Stack {
       targets: [new LambdaTarget(recoMonitor)],
     });
 
-    // 플로팅 챗봇(오른쪽 하단) — 시장 스냅샷 + 뉴스 + 샘플 포트폴리오를 컨텍스트로 답변.
-    // RAG/회사 문서 연동은 다음 단계(현재는 대시보드에 이미 있는 데이터만 근거로 삼음).
+    // 플로팅 챗봇(오른쪽 하단) — Bedrock Agent 호출부. 데이터 접근은 전부 에이전트의 도구
+    // Lambda(agent-tools)가 하므로 이 함수엔 테이블 권한이 없다(InvokeAgent만).
     const chatFn = new LambdaFunction(this, "ChatBot", {
       functionName: "portpulse-chat",
       runtime: Runtime.NODEJS_22_X,
       handler: "chat.handler",
       code: Code.fromAsset(lambdaDir),
-      timeout: Duration.seconds(60),
+      // 에이전트가 도구를 여러 번 호출할 수 있어 직접 Converse보다 오래 걸린다 — 90초로 여유.
+      timeout: Duration.seconds(90),
       memorySize: 256,
       logGroup: new LogGroup(this, "ChatBotLogs", {
         retention: RetentionDays.ONE_MONTH,
         removalPolicy: RemovalPolicy.DESTROY,
       }),
-      environment: {
-        MARKET_TABLE_NAME: table.tableName,
-        NEWS_TABLE_NAME: newsTable.tableName,
-        BEDROCK_MODEL_ID: "global.anthropic.claude-opus-4-5-20251101-v1:0",
-      },
     });
-    table.grantReadData(chatFn);
-    newsTable.grantReadData(chatFn);
-    chatFn.addToRolePolicy(
-      new PolicyStatement({ actions: ["bedrock:InvokeModel", "bedrock:Converse"], resources: ["*"] }),
-    );
+    agent.grantInvoke(chatFn);
 
     const httpApi = new HttpApi(this, "MarketApi", {
       apiName: "portpulse-market-api",
@@ -343,6 +350,9 @@ export class MarketStack extends Stack {
     new CfnOutput(this, "RecoMonitorName", { value: recoMonitor.functionName });
     new CfnOutput(this, "ScheduleTableName", { value: scheduleTable.tableName });
     new CfnOutput(this, "ScheduleCollectorName", { value: scheduleCollector.functionName });
+    new CfnOutput(this, "AgentId", { value: agent.agentId });
+    new CfnOutput(this, "AgentAliasId", { value: agent.aliasId });
+    new CfnOutput(this, "AgentToolsName", { value: agent.toolsFunction.functionName });
     new CfnOutput(this, "ApiUrl", { value: httpApi.apiEndpoint });
   }
 }

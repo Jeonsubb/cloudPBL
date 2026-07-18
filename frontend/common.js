@@ -329,7 +329,8 @@ async function loadMoreNews(listId, moreBtnId) {
 }
 
 /* ---------- 플로팅 챗봇(전 페이지 공통) ---------- */
-const chatHistory = [];
+// 대화 이력은 서버(Bedrock Agent 세션)가 보관 — 프론트는 sessionId만 들고 다닌다.
+let chatSessionId = null;
 let chatOpened = false;
 function chatAppend(role, text) {
   const body = document.getElementById("chatBody");
@@ -364,12 +365,12 @@ async function sendChatMessage() {
     const data = await (await fetch(`${API_URL}/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message, history: chatHistory }),
+      body: JSON.stringify({ message, sessionId: chatSessionId }),
     })).json();
     pending.remove();
     if (data.reply) {
       chatAppend("bot", data.reply);
-      chatHistory.push({ role: "user", text: message }, { role: "assistant", text: data.reply });
+      if (data.sessionId) chatSessionId = data.sessionId;
     } else {
       chatAppend("bot", `오류: ${data.error || "응답을 받지 못했습니다"}`);
     }

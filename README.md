@@ -10,6 +10,7 @@ KOBC 웹(엑셀 다운로드 폼) ──(매주 월 15:00 KST)──> Lambda(kcc
 
 DynamoDB(시장+뉴스) ──> Lambda(query/news-query) ──> API Gateway ──> 대시보드(frontend/index.html)
 DynamoDB(시장+뉴스) ──(매일 07:00 KST)──> Lambda(news-digest) ──> Bedrock(Claude) ──> 텔레그램 봇
+챗봇/어드바이저 ──> Bedrock Agent(portpulse-agent) ⇄ Lambda(agent-tools: 시장·뉴스·회사DB 조회 + 웹검색)
 ```
 
 ## 수집 지표
@@ -40,8 +41,9 @@ lambda/     [수집기 — 각자 스케줄·외부 API가 달라 Lambda 분리 
               api.mjs(통합 라우터, Lambda 1개) → query.mjs(/series) · news-query.mjs(/news/top)
               · shipment-query.mjs(/shipments, decision.mjs+sample-portfolio.mjs 사용)
               market-series.mjs: query.mjs가 쓰는 통합 지표 레지스트리
-            [그 외]
-              chat.mjs(플로팅 챗봇, POST라 별도 Lambda 유지)
+            [Bedrock Agent — docs/bedrock-agent.md 참조]
+              chat.mjs(플로팅 챗봇 — InvokeAgent 호출부, POST라 별도 Lambda 유지)
+              agent-tools.mjs(에이전트 도구 실행기: 시장/뉴스/회사 DB 조회 + 웹검색)
             — Lambda 배포 자산. npm 의존성: xlsx(KCCI 파싱), @aws-sdk/client-bedrock-runtime·secrets-manager(브리핑/어드바이저/챗봇/중복제거)
 src/        ECOS 로컬 실행기와 SVG 차트 렌더러
 infra/      AWS CDK 스택 (DynamoDB + Lambda + EventBridge 일별/주간 스케줄)
@@ -126,17 +128,21 @@ Lambda(`portpulse-api-query`) 하나로 통합**돼 있다 — 전부 "API Gatew
 Bedrock이 그 결과를 근거로 실무 조언을 생성한다. (현재는 `lambda/sample-portfolio.mjs`의 가상 샘플 6건 — 실서비스에선 엑셀 임포트/DB로 대체)
 
 - `lambda/decision.mjs`: 규칙엔진(`decision-v1.0.0`, portpulse-mvp 로직 포팅). 비교가능성 판정 → 예산편차/KCCI편차/납기버퍼/견적유효 계산 → 행동 결정. **순수 함수, 숫자·행동은 여기서만 확정.**
-- `lambda/shipment-query.mjs`: 실시간 KCCI 13개 항로(전주 대비 변동)와 환율을 DynamoDB에서 읽어 결정카드를 만들고, `/advisor`에서 Bedrock 호출.
+- `lambda/shipment-query.mjs`: 실시간 KCCI 13개 항로(전주 대비 변동)와 환율을 DynamoDB에서 읽어 결정카드를 만들고, `/advisor`에서 Bedrock Agent 호출(결정카드는 확정값으로 넘기고, 에이전트가 뉴스·웹검색 도구로 맥락 보강 가능).
 - **AI 역할(적극 추천형)**: 규칙엔진이 정한 행동은 고정하고, Bedrock이 "왜 그런지 + 오늘 할 구체적 행동(재견적 시 얼마 인하 요청 등)"을 제안. 데이터에 없는 수치(미래 운임·정확 ETA)는 생성 금지, "AI 참고 의견" 라벨 필수.
 
 > 참고: 기획서 원안은 "Bedrock은 설명만, 결정 안 함"이지만, 데모 방향으로 **적극 추천형**을 채택함. 근거 기반·면책 표기로 리스크를 관리하되, 운영 전환 시 이 경계를 재검토할 것.
 
-## 플로팅 챗봇 (오른쪽 하단)
+## 플로팅 챗봇 (오른쪽 하단) — Bedrock Agent
 
-`lambda/chat.mjs` (`POST /chat`)가 오늘의 시장 스냅샷(환율·기준금리·KCCI+급등락 항로) + 뉴스 상위 + 샘플 선적 포트폴리오를 컨텍스트로 붙여 Bedrock으로 답한다.
-대화 이력은 프론트가 들고 있다가 매 요청에 함께 보내는 방식(서버는 상태 없음, `MAX_HISTORY_TURNS=12`로 컷).
+`lambda/chat.mjs` (`POST /chat`)는 **Bedrock Agent(`portpulse-agent`) 호출부**다. 이전처럼 매 요청마다
+시장+뉴스+포트폴리오 전체를 조립하지 않고, 에이전트가 질문을 보고 필요한 도구(`lambda/agent-tools.mjs`:
+시장 스냅샷/시계열·뉴스·결정카드·현재 선적·추천 이력·웹 검색)만 골라 호출한다.
+대화 이력은 에이전트 세션이 서버측 보관(유휴 30분) — 프론트는 `sessionId`만 왕복한다.
+에이전트 지침·도구 스펙·기능별 통합 방식은 **`docs/bedrock-agent.md`** 참조.
 
-- 아직 **RAG·회사 실제 문서(계약서/사내DB) 연동은 없음** — 시스템 프롬프트에 명시해 회사 고유 정보를 물으면 그렇게 안내하도록 함. 다음 단계로 예정.
+- 아직 **RAG·회사 실제 문서(계약서/사내DB) 연동은 없음** — 에이전트 지침에 명시해 회사 고유 정보를 물으면 그렇게 안내하도록 함. 다음 단계로 예정.
+- 웹 검색 도구는 Secrets Manager `portpulse/web-search`에 Tavily 키를 넣어야 활성화(미설정 시 내부 DB만으로 답변).
 
 ## KCCI는 왜 공식 API 대신 엑셀 다운로드 폼을 쓰는가
 
@@ -177,7 +183,7 @@ aws lambda invoke --function-name portpulse-news-collector \
 3. 뉴스 링크는 코드가 원본 그대로 붙이고(LLM URL 변형 방지), 텔레그램으로 전송
 
 - 텔레그램 토큰/chatId는 Secrets Manager `portpulse/telegram-bot`에 저장(코드·git에 없음). 미설정 시 전송만 건너뛰고 생성 텍스트는 반환.
-- Bedrock 아키텍처: DB 정형 데이터 → Lambda가 고정 템플릿으로 조립 → 프롬프트로 생성(상태 없는 텍스트 입출력). 입력이 자체 데이터+고정 프롬프트뿐이라 가드레일/에이전트는 현 단계 불필요.
+- Bedrock 아키텍처: DB 정형 데이터 → Lambda가 고정 템플릿으로 조립 → 프롬프트로 생성(상태 없는 텍스트 입출력). 입력이 자체 데이터+고정 프롬프트뿐이라 **브리핑은 에이전트 미적용**(챗봇·어드바이저는 에이전트로 전환 — 경계 기준과 이유는 `docs/bedrock-agent.md`).
 
 ```bash
 aws lambda invoke --function-name portpulse-news-digest \

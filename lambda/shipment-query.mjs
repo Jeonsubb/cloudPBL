@@ -1,16 +1,20 @@
 // 선적 의사결정 조회 API.
 // GET /shipments                    → 샘플 포트폴리오 결정카드(실시간 KCCI/환율 반영) + 포트폴리오 요약
-// GET /shipments/{id}/advisor       → Bedrock 적극 추천형 AI 어드바이저(결정카드 근거 기반, 숫자 창작 금지)
+// GET /shipments/{id}/advisor       → Bedrock Agent 어드바이저(결정카드 근거 기반, 숫자 창작 금지)
+// (Bedrock Agent 재구성) 어드바이저는 직접 Converse 대신 에이전트를 호출한다 — 결정카드(확정 숫자)는
+// 요청 프롬프트로 넘기고, 에이전트가 필요하면 뉴스·웹검색 도구로 시황 맥락을 보강한다.
+import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
+import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
 import { buildDecisionCard, quoteChargeTotal, quoteComparableTotal } from "./decision.mjs";
 import { SHIPMENTS, QUOTES } from "./sample-portfolio.mjs";
 import { KCCI_SERIES } from "./kcci-series.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const bedrock = new BedrockRuntimeClient({});
-const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? "global.anthropic.claude-opus-4-5-20251101-v1:0";
+const agentRuntime = new BedrockAgentRuntimeClient({});
+const AGENT_ID = process.env.AGENT_ID;
+const AGENT_ALIAS_ID = process.env.AGENT_ALIAS_ID;
 
 function response(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
@@ -85,8 +89,7 @@ function advisorPrompt(entry, usdKrw) {
     ? `동일 항로 KCCI(${card.market.name}): ${card.market.value.toLocaleString("en-US")} (전주 ${card.market.weeklyChangePct >= 0 ? "+" : ""}${card.market.weeklyChangePct.toFixed(2)}%, ${card.market.observedAt})`
     : "동일 항로 KCCI 비교값 없음";
 
-  return `당신은 한국 수출기업의 국제물류 담당자를 돕는 시니어 물류 어드바이저입니다.
-아래는 규칙엔진이 이미 계산한 '선적 결정 카드'와 근거 데이터입니다.
+  return `아래는 규칙엔진이 이미 계산한 '선적 결정 카드'와 근거 데이터입니다(어드바이저 임무).
 규칙엔진의 행동/숫자는 확정 사실이므로 바꾸지 말고, 그 위에 실무자가 바로 쓸 수 있는 조언을 적극적으로 제시하세요.
 
 [선적]
@@ -109,18 +112,26 @@ ${krwLine}
 [작성 지침]
 - 마크다운 기호 없이 순수 텍스트. 📌로 시작하는 2~3개 짧은 단락.
 - 규칙엔진이 정한 행동을 먼저 한 문장으로 확인한 뒤, "왜 그런지"를 데이터로 풀어 설명.
+- 필요하면 오늘 뉴스(get_top_news)나 웹 검색으로 이 항로 시황 맥락을 한 줄 보강해도 좋다(도구 결과에 없는 수치 인용 금지).
 - 실무자가 오늘 당장 할 구체적 행동(누구에게 무엇을 언제까지)을 제안. 재견적이면 어떤 항목을 얼마나 낮춰달라 요청할지까지.
 - 위 데이터에 없는 수치(미래 운임, 정확한 ETA 등)는 지어내지 말 것. 불확실하면 불확실하다고 쓸 것.
 - 마지막 줄에 "※ AI 참고 의견이며 최종 판단은 담당자 확인이 필요합니다." 한 줄 추가.`;
 }
 
-async function callBedrock(prompt) {
-  const r = await bedrock.send(new ConverseCommand({
-    modelId: MODEL_ID,
-    messages: [{ role: "user", content: [{ text: prompt }] }],
-    inferenceConfig: { maxTokens: 1400, temperature: 0.5 },
+// 어드바이저는 일회성 작업이라 세션 재사용 없이 매번 새 sessionId로 부른다.
+async function invokeAdvisorAgent(prompt) {
+  if (!AGENT_ID || !AGENT_ALIAS_ID) throw new Error("AGENT_ID/AGENT_ALIAS_ID env is required");
+  const r = await agentRuntime.send(new InvokeAgentCommand({
+    agentId: AGENT_ID,
+    agentAliasId: AGENT_ALIAS_ID,
+    sessionId: `advisor-${randomUUID()}`,
+    inputText: prompt,
   }));
-  return r.output?.message?.content?.[0]?.text ?? "";
+  let text = "";
+  for await (const ev of r.completion) {
+    if (ev.chunk?.bytes) text += new TextDecoder().decode(ev.chunk.bytes);
+  }
+  return text;
 }
 
 export async function handler(event) {
@@ -138,7 +149,7 @@ export async function handler(event) {
     if (!shipment) return response(404, { error: `unknown shipment: ${shipmentId}` });
     const card = buildDecisionCard(shipment, quotes, marketByRoute, asOf);
     const usdKrw = await getUsdKrw(tableName);
-    const advice = await callBedrock(advisorPrompt({ shipment, quotes, card }, usdKrw));
+    const advice = await invokeAdvisorAgent(advisorPrompt({ shipment, quotes, card }, usdKrw));
     return response(200, { shipmentId, action: card.action, advice, evaluatedAt: asOf });
   }
 
