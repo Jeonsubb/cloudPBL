@@ -72,6 +72,40 @@ export class MarketStack extends Stack {
       targets: [new LambdaTarget(kcciCollector, { event: RuleTargetInput.fromObject({ weeks: 4 }) })],
     });
 
+    // 실제 선박 스케줄(ShipDa 수집) — KCCI 항로별 실 항차. 남아공/서아공 2개 항로는 커버리지 없어 미수집.
+    const scheduleTable = new Table(this, "ScheduleTable", {
+      tableName: "portpulse-schedule",
+      partitionKey: { name: "routeCode", type: AttributeType.STRING },
+      sortKey: { name: "sortKey", type: AttributeType.STRING }, // `${fullETD}#${shipdaId}` — ETD 순 정렬+유일성
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    const scheduleCollector = new LambdaFunction(this, "ScheduleCollector", {
+      functionName: "portpulse-schedule-collector",
+      runtime: Runtime.NODEJS_22_X,
+      handler: "schedule-collector.handler",
+      code: Code.fromAsset(lambdaDir),
+      timeout: Duration.minutes(3),
+      memorySize: 256,
+      logGroup: new LogGroup(this, "ScheduleCollectorLogs", {
+        retention: RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }),
+      environment: {
+        SCHEDULE_TABLE_NAME: scheduleTable.tableName,
+        MARKET_TABLE_NAME: table.tableName,
+      },
+    });
+    scheduleTable.grantWriteData(scheduleCollector);
+    table.grantReadData(scheduleCollector); // 항로별 KCCI 시계열 읽어 합성 운임 계산
+
+    // 매주 월요일 15:30 KST(06:30 UTC): KCCI 수집(15:00) 직후 — 최신 지수로 합성 운임 계산.
+    new Rule(this, "WeeklyScheduleCollect", {
+      schedule: Schedule.cron({ minute: "30", hour: "6", weekDay: "MON" }),
+      targets: [new LambdaTarget(scheduleCollector)],
+    });
+
     const newsTable = new Table(this, "NewsTable", {
       tableName: "portpulse-news",
       partitionKey: { name: "date", type: AttributeType.STRING },
@@ -302,6 +336,8 @@ export class MarketStack extends Stack {
     new CfnOutput(this, "CompanyBucketName", { value: companyBucket.bucketName });
     new CfnOutput(this, "RecoTableName", { value: recoTable.tableName });
     new CfnOutput(this, "RecoMonitorName", { value: recoMonitor.functionName });
+    new CfnOutput(this, "ScheduleTableName", { value: scheduleTable.tableName });
+    new CfnOutput(this, "ScheduleCollectorName", { value: scheduleCollector.functionName });
     new CfnOutput(this, "ApiUrl", { value: httpApi.apiEndpoint });
   }
 }

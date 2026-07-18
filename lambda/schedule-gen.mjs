@@ -31,6 +31,24 @@ function indexAt(series, targetIso) {
   return v;
 }
 
+// KCCI 앵커+지터 합성가 공식 — generateSailings(합성 스케줄)와 schedule-collector(실제 스케줄)가 공유.
+// seed는 항차를 유일하게 식별하는 문자열(합성은 "선박|항차", 실제는 원천 소스의 고유 id)이면 된다.
+export function syntheticPrice({ anchorUsd, routeSeries, etdIso, seed, jitterPct = 0.06 }) {
+  const indexNow = routeSeries?.at(-1)?.value ?? null;
+  const idxAtEtd = routeSeries ? indexAt(routeSeries, etdIso) : indexNow;
+  const marketRatio = indexNow ? idxAtEtd / indexNow : 1;
+  const jit = jitter(seed, jitterPct);
+  const priceUSD = Math.round((anchorUsd * marketRatio * jit) / 10) * 10;
+  return {
+    priceUSD,
+    priceBasis: {
+      anchorUsd, kcciAtEtd: idxAtEtd, kcciNow: indexNow,
+      marketRatio: Number(marketRatio.toFixed(3)),
+      jitterPct: Number(((jit - 1) * 100).toFixed(1)),
+    },
+  };
+}
+
 function vesselCode(vessel) {
   const words = vessel.split(/\s+/);
   const letters = (words[0].slice(0, 1) + (words[1] ?? words[0]).slice(0, 3)).toUpperCase();
@@ -49,7 +67,6 @@ export function generateSailings(routeCode, { fromIso, toIso, routeSeries } = {}
   const services = servicesForRoute(routeCode);
   if (services.length === 0) return [];
   const from = d(fromIso), to = d(toIso);
-  const indexNow = routeSeries?.at(-1)?.value ?? null;
   const dir = DIR_BY_ROUTE[routeCode] ?? "E";
   const out = [];
 
@@ -67,23 +84,16 @@ export function generateSailings(routeCode, { fromIso, toIso, routeSeries } = {}
       const seq = String(100 + (week % 900)).padStart(4, "0");
       const voyage = `${vesselCode(vessel)}${seq}${dir}`;
 
-      const idxAtEtd = routeSeries ? indexAt(routeSeries, etd) : indexNow;
-      const marketRatio = indexNow ? idxAtEtd / indexNow : 1;
-      const jit = jitter(`${vessel}|${voyage}`, 0.06);
-      const priceUSD = Math.round((svc.anchorUsd * marketRatio * jit) / 10) * 10;
+      const { priceUSD, priceBasis } = syntheticPrice({
+        anchorUsd: svc.anchorUsd, routeSeries, etdIso: etd, seed: `${vessel}|${voyage}`,
+      });
 
       out.push({
         routeCode, service: svc.service, operator: svc.operator,
         vessel, voyage, direct: svc.direct, transitDays: svc.transitDays,
         etd, eta,
         priceUSD,
-        priceBasis: {
-          anchorUsd: svc.anchorUsd,
-          kcciAtEtd: idxAtEtd,
-          kcciNow: indexNow,
-          marketRatio: Number(marketRatio.toFixed(3)),
-          jitterPct: Number(((jit - 1) * 100).toFixed(1)),
-        },
+        priceBasis,
       });
     }
   }
