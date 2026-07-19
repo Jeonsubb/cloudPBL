@@ -415,13 +415,42 @@ function renderNews(listId, moreBtnId) {
     </li>`).join("");
   if (btn) btn.style.display = newsState.compact || newsState.noMoreData ? "none" : "block";
 }
-// compact=true면 상위 5건만 보여주고 더보기 없음(홈 요약용).
+// 홈 요약은 최신 날짜의 기사만으로 5건이 채워지지 않으면 이전 날짜 기사까지 이어 붙인다.
+async function fetchRecentNews(limit = 5, maxLookbackDays = 14) {
+  let data = await fetchNewsPage(null, NEWS_PAGE_SIZE);
+  const latestDate = data.date;
+  let cursorDate = latestDate;
+  const items = [];
+  const seen = new Set();
+  const appendUnique = (candidates = []) => {
+    candidates.forEach((item) => {
+      const key = item.link || `${item.source || ""}:${item.title || ""}`;
+      if (!seen.has(key)) { seen.add(key); items.push(item); }
+    });
+  };
+
+  appendUnique(data.items);
+  for (let back = 0; back < maxLookbackDays && items.length < limit && cursorDate; back++) {
+    cursorDate = shiftDate(cursorDate, -1);
+    data = await fetchNewsPage(cursorDate, NEWS_PAGE_SIZE);
+    appendUnique(data.items);
+  }
+  return { date: latestDate, items: items.slice(0, limit) };
+}
+
+// compact=true면 최근 기사 5건만 보여주고 더보기 없음(홈 요약용).
 async function loadNews(listId, moreBtnId, compact = false) {
   newsState.compact = compact;
   try {
+    if (compact) {
+      const recent = await fetchRecentNews(5);
+      newsState.date = recent.date; newsState.limit = NEWS_PAGE_SIZE; newsState.shown = recent.items; newsState.noMoreData = true;
+      renderNews(listId, moreBtnId);
+      return;
+    }
     let data = await fetchNewsPage(null, NEWS_PAGE_SIZE);
     let date = data.date;
-    for (let back = 0; back < 7 && data.items.length === 0; back++) {
+    for (let back = 0; back < 7 && data.items.length === 0 && date; back++) {
       date = shiftDate(date, -1);
       data = await fetchNewsPage(date, NEWS_PAGE_SIZE);
     }
@@ -510,7 +539,7 @@ function toggleChat(open) {
   panel.classList.toggle("open", open);
   if (open && !chatOpened) {
     chatOpened = true;
-    chatAppend("bot", "안녕하세요! 오늘 시장 상황, 선적 현황, KOBC 해운 보고서나 DCSA 표준에 대해 물어보세요.\n(회사 내부 계약서·사내 문서는 아직 연결되어 있지 않아요.)");
+    chatAppend("bot", "안녕하세요! 오늘 시장 상황, 선적 현황, KOBC 해운 보고서, DCSA 표준과 연결된 사내 문서에 대해 물어보세요.");
     document.getElementById("chatInput").focus();
   }
 }

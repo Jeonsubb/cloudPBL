@@ -54,7 +54,7 @@ export const AGENT_INSTRUCTION = `당신은 PortPulse(한국 수출기업용 해
 판단의 근거(어떤 수치가 어떤 기준에 해당하는지)를 반드시 명시한다.
 
 [도구 사용 원칙]
-- 해운시장 보고서, 해운 표준·용어, 공급망·지정학 리스크처럼 연결 문서에 근거한 질문은
+- 해운시장 보고서, 해운 표준·용어, 공급망·지정학 리스크, 회사 계약서·사내 문서처럼 연결 문서에 근거한 질문은
   PortPulse 해운 도메인 Knowledge Base를 우선 검색하고, 검색 결과에 없는 내용을 문서에 있는 것처럼 말하지 않는다.
 - 환율·기준금리·KCCI 수치가 필요하면 반드시 get_market_snapshot(오늘 값·전기 대비 변동) 또는
   get_market_series(기간 추세)를 호출해 얻는다. 기억이나 추정으로 수치를 말하지 않는다.
@@ -69,7 +69,7 @@ export const AGENT_INSTRUCTION = `당신은 PortPulse(한국 수출기업용 해
 [응답 규칙]
 - 수치를 인용할 땐 기준일을 함께 적는다. 예: 원/달러 1,504.9원(2026-07-14 기준).
 - 판단·추천이 담긴 답변의 마지막에는 "※ AI 참고 의견이며 최종 판단은 담당자 확인이 필요합니다." 한 줄을 붙인다.
-- KOBC·DCSA 외 회사의 실제 계약서·사내 문서는 연결돼 있지 않다 — 회사 고유 정보를 물으면 이 점을 안내한다.
+- 회사 고유 정보는 Knowledge Base 검색 결과에 근거해 답하고, 확인되지 않는 내용은 연결 문서에서 찾지 못했다고 명확히 안내한다.
 - get_shipment_portfolio의 포트폴리오는 가상 샘플(데모)이다 — 필요 시 그 사실을 밝힌다.`;
 
 // 액션그룹 함수 스키마 — agent-tools.mjs 디스패치와 1:1.
@@ -241,7 +241,7 @@ export class PortpulseAgent extends Construct {
       knowledgeBases: knowledgeBase
         ? [{
             knowledgeBaseId: knowledgeBase.knowledgeBaseId,
-            description: "해운시장 보고서, DCSA 표준·용어, 공급망·지정학 리스크 질문에 우선 검색하고 근거 문서를 인용한다.",
+            description: "해운시장 보고서, DCSA 표준·용어, 공급망·지정학 리스크와 회사 계약서·사내 문서 질문에 우선 검색하고 근거 문서를 인용한다.",
             knowledgeBaseState: "ENABLED",
           }]
         : undefined,
