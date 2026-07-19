@@ -1,13 +1,11 @@
 // 선적 의사결정 조회 API.
-// GET /shipments                    → 샘플 포트폴리오 결정카드(실시간 KCCI/환율 반영) + 포트폴리오 요약
-// GET /shipments/{id}/advisor       → Bedrock Agent 어드바이저(결정카드 근거 기반, 숫자 창작 금지)
-// (Bedrock Agent 재구성) 어드바이저는 직접 Converse 대신 에이전트를 호출한다 — 결정카드(확정 숫자)는
-// 요청 프롬프트로 넘기고, 에이전트가 필요하면 뉴스·웹검색 도구로 시황 맥락을 보강한다.
+// GET /shipments                    → 샘플 포트폴리오 원본 데이터(선적·견적·시장가) — Agent가 판단
+// GET /shipments/{id}/advisor       → Bedrock Agent 어드바이저(Agent가 데이터를 보고 직접 의사결정)
+// Agent 극대화 구조: 규칙엔진 제거, Agent가 선적·견적·시장 데이터를 직접 분석해 행동을 결정한다.
 import { randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
-import { buildDecisionCard, quoteChargeTotal, quoteComparableTotal } from "./decision.mjs";
 import { SHIPMENTS, QUOTES } from "./sample-portfolio.mjs";
 import { KCCI_SERIES } from "./kcci-series.mjs";
 
@@ -53,69 +51,69 @@ async function getUsdKrw(tableName) {
   return two ? { value: two.latest.value, date: two.latest.date } : null;
 }
 
-function cardsFor(asOf, marketByRoute) {
+// 포트폴리오 원본 데이터 — Agent가 직접 판단할 수 있도록 선적·견적·시장가를 그대로 반환
+function buildPortfolioData(asOf, marketByRoute) {
   return SHIPMENTS.map((sh) => {
     const quotes = QUOTES.filter((q) => q.shipmentId === sh.id);
-    const card = buildDecisionCard(sh, quotes, marketByRoute, asOf);
-    return { shipment: sh, quotes, card };
+    const market = sh.routeCode ? marketByRoute[sh.routeCode] : null;
+    const quotesWithComparable = quotes.map((q) => {
+      const comparableCharges = q.charges.filter((c) => c.kcciComparable);
+      const comparableTotal = comparableCharges.reduce((s, c) => s + c.amount * c.quantity, 0);
+      const comparablePerFeu = sh.containerCount > 0 ? Math.round(comparableTotal / sh.containerCount) : comparableTotal;
+      return {
+        id: q.id, forwarder: q.forwarder, total: q.total, currency: q.currency,
+        comparablePerFeu, validUntil: q.validUntil,
+        plannedEtd: q.plannedEtd, plannedEta: q.plannedEta,
+        direct: q.direct, transshipments: q.transshipments,
+      };
+    });
+    const daysToDelivery = Math.ceil((new Date(`${sh.requiredDeliveryDate}T00:00:00+09:00`) - new Date(`${asOf}T00:00:00+09:00`)) / 86_400_000);
+    return {
+      shipment: sh, quotes: quotesWithComparable,
+      market, daysToDelivery,
+    };
   });
 }
 
-function portfolioSummary(entries) {
-  const cards = entries.map((e) => e.card);
-  const budgetExposure = entries.reduce((sum, e) => {
-    const q = e.quotes.find((x) => x.id === e.card.quoteId);
-    if (!q || (e.card.budgetVariancePct ?? 0) <= 0) return sum;
-    return sum + Math.max(0, q.total - e.shipment.targetBudget);
-  }, 0);
-  return {
-    total: cards.length,
-    urgent: cards.filter((c) => c.priority === "URGENT").length,
-    actionDue: cards.filter((c) => c.priority === "URGENT" || c.priority === "ACTION").length,
-    directComparable: cards.filter((c) => c.comparability === "DIRECT").length,
-    dataReview: cards.filter((c) => c.comparability !== "DIRECT").length,
-    budgetExposureUsd: Math.round(budgetExposure),
-  };
-}
-
-function advisorPrompt(entry, usdKrw) {
-  const { shipment: sh, quotes, card } = entry;
-  const quoteLines = quotes.map((q) =>
-    `- ${q.id} ${q.forwarder}: 총 ${q.total.toLocaleString("en-US")} ${q.currency} (해상비 비교분 ${quoteComparableTotal(q).toLocaleString("en-US")}), 유효기간 ${q.validUntil}, ETD ${q.plannedEtd}→ETA ${q.plannedEta}, ${q.direct ? "직항" : `환적 ${q.transshipments}회`}`
-  ).join("\n") || "(등록된 견적 없음)";
+function advisorPrompt(shipment, quotes, marketByRoute, usdKrw) {
+  const market = shipment.routeCode ? marketByRoute[shipment.routeCode] : null;
+  const quoteLines = quotes.map((q) => {
+    const comparableCharges = q.charges.filter((c) => c.kcciComparable);
+    const comparableTotal = comparableCharges.reduce((s, c) => s + c.amount * c.quantity, 0);
+    const comparablePerFeu = shipment.containerCount > 0 ? Math.round(comparableTotal / shipment.containerCount) : comparableTotal;
+    return `- ${q.id} ${q.forwarder}: 총 ${q.total.toLocaleString("en-US")} ${q.currency} (해상비 비교분 FEU당 ${comparablePerFeu.toLocaleString("en-US")}), 유효기간 ${q.validUntil}, ETD ${q.plannedEtd}→ETA ${q.plannedEta}, ${q.direct ? "직항" : `환적 ${q.transshipments}회`}`;
+  }).join("\n") || "(등록된 견적 없음)";
 
   const krwLine = usdKrw ? `참고 환율: 1 USD = ${usdKrw.value.toLocaleString("en-US")}원 (${usdKrw.date})` : "";
-  const marketLine = card.market
-    ? `동일 항로 KCCI(${card.market.name}): ${card.market.value.toLocaleString("en-US")} (전주 ${card.market.weeklyChangePct >= 0 ? "+" : ""}${card.market.weeklyChangePct.toFixed(2)}%, ${card.market.observedAt})`
+  const marketLine = market
+    ? `동일 항로 KCCI(${market.name}): FEU당 ${market.value.toLocaleString("en-US")} USD (전주 ${market.weeklyChangePct >= 0 ? "+" : ""}${market.weeklyChangePct.toFixed(2)}%, ${market.observedAt})`
     : "동일 항로 KCCI 비교값 없음";
+  const budgetVsQuote = quotes.length > 0
+    ? `예산 대비: 최저 견적 ${Math.min(...quotes.map(q => q.total)).toLocaleString("en-US")} vs 목표 ${shipment.targetBudget.toLocaleString("en-US")} ${shipment.currency} (${((Math.min(...quotes.map(q => q.total)) / shipment.targetBudget - 1) * 100).toFixed(1)}%)`
+    : "";
 
-  return `아래는 규칙엔진이 이미 계산한 '선적 결정 카드'와 근거 데이터입니다(어드바이저 임무).
-규칙엔진의 행동/숫자는 확정 사실이므로 바꾸지 말고, 그 위에 실무자가 바로 쓸 수 있는 조언을 적극적으로 제시하세요.
+  return `아래 선적의 데이터를 분석해서, 지금 어떤 행동을 취해야 하는지 직접 판단하고 조언해주세요.
 
-[선적]
-${sh.id} ${sh.originLabel}→${sh.destinationLabel} / ${sh.equipment}×${sh.containerCount} ${sh.cargoProfile} ${sh.loadType}
-품목: ${sh.description} / 인코텀즈 ${sh.incoterm} / 부킹통제 ${sh.bookingController}
-목표예산 ${sh.targetBudget.toLocaleString("en-US")} ${sh.currency} (${sh.costScope}) / Cargo Ready ${sh.cargoReadyDate} / 납기 ${sh.requiredDeliveryDate}
+[선적 정보]
+${shipment.id} ${shipment.originLabel}→${shipment.destinationLabel} / ${shipment.equipment}×${shipment.containerCount} ${shipment.cargoProfile} ${shipment.loadType}
+품목: ${shipment.description} / 인코텀즈 ${shipment.incoterm} / 부킹통제 ${shipment.bookingController}
+목표예산 ${shipment.targetBudget.toLocaleString("en-US")} ${shipment.currency} (${shipment.costScope})
+Cargo Ready ${shipment.cargoReadyDate} / 납기 ${shipment.requiredDeliveryDate}
 
-[견적]
+[포워더 견적]
 ${quoteLines}
+${budgetVsQuote}
 
-[규칙엔진 결정 — 확정]
-행동: ${card.actionLabel}(${card.action}) / 우선순위 ${card.priority} / 신뢰도 ${card.confidence} / 마감 ${card.deadline}
-예산편차: ${card.budgetVariancePct === null ? "N/A" : card.budgetVariancePct.toFixed(1) + "%"} / KCCI편차: ${card.kcciVariancePct === null ? "N/A(비교불가)" : card.kcciVariancePct.toFixed(1) + "%"}
-납기버퍼: ${card.deliveryBufferDays ?? "N/A"}일 / 견적유효: ${card.quoteValidityDays ?? "N/A"}일 / 비교가능성: ${card.comparability}
-근거: ${card.reasons.join(" ")}
-주의신호: ${card.counterSignals.join(" ") || "없음"}
+[시장 데이터]
 ${marketLine}
 ${krwLine}
 
-[작성 지침]
-- 마크다운 기호 없이 순수 텍스트. 📌로 시작하는 2~3개 짧은 단락.
-- 규칙엔진이 정한 행동을 먼저 한 문장으로 확인한 뒤, "왜 그런지"를 데이터로 풀어 설명.
-- 필요하면 오늘 뉴스(get_top_news)나 웹 검색으로 이 항로 시황 맥락을 한 줄 보강해도 좋다(도구 결과에 없는 수치 인용 금지).
-- 실무자가 오늘 당장 할 구체적 행동(누구에게 무엇을 언제까지)을 제안. 재견적이면 어떤 항목을 얼마나 낮춰달라 요청할지까지.
-- 위 데이터에 없는 수치(미래 운임, 정확한 ETA 등)는 지어내지 말 것. 불확실하면 불확실하다고 쓸 것.
-- 마지막 줄에 "※ AI 참고 의견이며 최종 판단은 담당자 확인이 필요합니다." 한 줄 추가.`;
+[요청]
+- 위 데이터를 종합 분석해서 행동(BOOK_NOW/BOOK_SOON/CONSIDER_WAIT/REQUEST_REQUOTE/DEADLINE_RISK)을 직접 결정하세요.
+- 판단 근거를 수치와 함께 명시하세요.
+- 실무자가 오늘 당장 할 구체적 행동(누구에게 무엇을 언제까지)을 제안하세요.
+- 필요하면 get_top_news나 web_search로 이 항로의 시황 맥락을 보강해도 좋습니다.
+- 마크다운 기호 없이 순수 텍스트로 작성하세요.`;
 }
 
 // 어드바이저는 일회성 작업이라 세션 재사용 없이 매번 새 sessionId로 부른다.
@@ -142,31 +140,36 @@ export async function handler(event) {
 
   const marketByRoute = await buildMarketByRoute(tableName);
 
-  // 어드바이저: /shipments/{id}/advisor
+  // 어드바이저: /shipments/{id}/advisor — Agent가 직접 판단
   if (shipmentId && path.includes("/advisor")) {
-    const quotes = QUOTES.filter((q) => q.shipmentId === shipmentId);
     const shipment = SHIPMENTS.find((s) => s.id === shipmentId);
     if (!shipment) return response(404, { error: `unknown shipment: ${shipmentId}` });
-    const card = buildDecisionCard(shipment, quotes, marketByRoute, asOf);
+    const quotes = QUOTES.filter((q) => q.shipmentId === shipmentId);
     const usdKrw = await getUsdKrw(tableName);
-    const advice = await invokeAdvisorAgent(advisorPrompt({ shipment, quotes, card }, usdKrw));
-    return response(200, { shipmentId, action: card.action, advice, evaluatedAt: asOf });
+    const prompt = advisorPrompt(shipment, quotes, marketByRoute, usdKrw);
+    const advice = await invokeAdvisorAgent(prompt);
+    return response(200, { shipmentId, advice, evaluatedAt: asOf });
   }
 
-  // 목록
-  const entries = cardsFor(asOf, marketByRoute);
+  // 목록: 원본 데이터 반환 (규칙엔진 없이)
+  const entries = buildPortfolioData(asOf, marketByRoute);
   return response(200, {
     asOf,
-    summary: portfolioSummary(entries),
-    shipments: entries.map(({ shipment, quotes, card }) => ({
+    shipments: entries.map(({ shipment, quotes, market, daysToDelivery }) => ({
       id: shipment.id,
       route: `${shipment.originLabel}→${shipment.destinationLabel}`,
+      routeCode: shipment.routeCode,
       equipment: `${shipment.equipment}×${shipment.containerCount}`,
       description: shipment.description,
+      incoterm: shipment.incoterm,
+      bookingController: shipment.bookingController,
       targetBudget: shipment.targetBudget,
       currency: shipment.currency,
-      selectedQuoteTotal: card.quoteId ? quoteChargeTotal(quotes.find((q) => q.id === card.quoteId)) : null,
-      card,
+      cargoReadyDate: shipment.cargoReadyDate,
+      requiredDeliveryDate: shipment.requiredDeliveryDate,
+      daysToDelivery,
+      quotes,
+      market,
     })),
   });
 }
