@@ -17,6 +17,7 @@ const PER_PAGE = 100;
 const POL_ID = 1; // 부산항(KRPUS) 고정 — 전 항로 출발지
 
 const SHIPDA_BASE = "https://api-prod.ship-da.com/vesselSchedule/quote/list";
+const SHIPDA_WEB = "https://www.ship-da.com/forwarding/schedule";
 const SHIPDA_HEADERS = {
   Origin: "https://www.ship-da.com",
   Referer: "https://www.ship-da.com/forwarding/schedule",
@@ -124,10 +125,15 @@ function toScheduleItem({ routeCode, podName, sailing: s, carrierById, anchorUsd
   const { priceUSD, priceBasis } = syntheticPrice({
     anchorUsd: tieredAnchor, routeSeries, etdIso, seed: String(s.id), jitterPct: 0.1,
   });
+  const scheduleQuery = new URLSearchParams({
+    freightType: "FCL", polId: String(POL_ID), podId: String(ROUTE_POD_IDS[routeCode].podId),
+    etd: `${etdIso}T00:00:00.000Z`, scheduleId: String(s.id),
+  });
   return {
     routeCode,
     sortKey: `${s.fullETD}#${s.id}`,
     shipdaId: s.id,
+    sourceUrl: `${SHIPDA_WEB}?${scheduleQuery}`,
     carrier,
     vessel: s.shipName,
     voyage: s.voyagerNo,

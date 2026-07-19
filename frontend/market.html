@@ -4,28 +4,31 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PortPulse — 시황</title>
-<link rel="stylesheet" href="common.css?v=9" />
+<link rel="stylesheet" href="common.css?v=17" />
 </head>
 <body>
 <div class="wrap">
   <div id="headerMount"></div>
   <div id="navMount"></div>
 
+  <div class="page-intro"><span class="eyebrow">MARKET BRIEFING</span><h2>선적 판단에 필요한 시장 흐름</h2><p>해운 운임, 환율과 금리의 현재 수준과 변화만 간결하게 확인하세요.</p></div>
   <div class="section-title">해운 운임 지수</div>
   <div id="hero"></div>
 
   <div class="section-title">환율 · 금리</div>
-  <div class="grid" id="grid"></div>
+  <div class="market-series-explorer">
+    <div class="market-series-filters" id="marketFilters"></div>
+    <div class="market-series-focus" id="grid"></div>
+  </div>
 
-  <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
 </div>
 
 <button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
 <div id="chatPanel">
   <div class="chat-head">
     <div>
-      <div class="title">🤖 PortPulse 어시스턴트</div>
-      <div class="sub">시장·뉴스·선적 현황 기반 · AI 참고 의견</div>
+      <div class="title">PortPulse 어시스턴트</div>
+      <div class="sub">시장·뉴스·회사 선적을 함께 확인합니다</div>
     </div>
     <button type="button" id="chatCloseBtn" aria-label="닫기">×</button>
   </div>
@@ -36,18 +39,17 @@
   </div>
 </div>
 
-<script src="common.js?v=9"></script>
+<script src="common.js?v=17"></script>
 <script>
 async function main() {
   renderBrandHeader();
   renderNav("market");
-  document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
   initChat();
-  const ok = await loadMarketSeries("hero", "grid");
+  const ok = await loadMarketSeries("hero", "grid", "marketFilters");
   const now = new Date();
   document.getElementById("updated").innerHTML = ok
-    ? `<strong>${now.toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" })}</strong> 기준<br>AWS API Gateway → Lambda → DynamoDB 실시간 조회`
-    : `<span class="err">API 연결 실패</span>`;
+    ? `<strong>${now.toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" })}</strong> 기준`
+    : `<span class="err">시장 정보를 불러오지 못했습니다</span>`;
 }
 main();
 </script>

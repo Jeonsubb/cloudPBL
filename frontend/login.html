@@ -4,42 +4,40 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PortPulse — 로그인</title>
-<link rel="stylesheet" href="common.css?v=9" />
+<link rel="stylesheet" href="common.css?v=17" />
 </head>
-<body>
-<div class="auth-wrap">
-  <div class="auth-card">
-    <div class="auth-brand">
-      <span class="dot"></span>
-      <div>
-        <h1>PortPulse</h1>
-        <div class="tag">수출입 기업을 위한 해운 운임·환율·시황 대시보드</div>
-      </div>
-    </div>
+<body class="auth-page">
+<a class="auth-back" href="index.html">← 서비스 소개로 돌아가기</a>
+<div class="auth-shell">
+  <section class="auth-context">
+    <a class="landing-brand inverse" href="index.html"><span class="brand-mark"></span><strong>PortPulse</strong></a>
+    <div><span class="eyebrow light">YOUR SHIPPING DESK</span><h1>오늘 확인할 선적부터<br>한눈에 정리하세요.</h1><p>회사 데이터와 운항 일정을 연결해 추천 항차, 납기 여유와 다음 행동을 확인할 수 있습니다.</p></div>
+    <div class="auth-benefits"><span>✓ 회사별 데이터 분리</span><span>✓ 실제 운항 일정 비교</span><span>✓ 추천 이유와 대안 제공</span></div>
+  </section>
+
+  <section class="auth-card">
+    <div class="auth-title"><span class="eyebrow">WELCOME</span><h2>PortPulse 시작하기</h2><p>회사 계정으로 로그인하거나 새 계정을 만드세요.</p></div>
 
     <div class="auth-tabs">
       <button type="button" class="auth-tab active" data-tab="login">로그인</button>
       <button type="button" class="auth-tab" data-tab="signup">회사 가입</button>
     </div>
 
-    <!-- 로그인 -->
     <form id="loginForm" class="auth-form">
-      <label>이메일<input type="email" name="email" required autocomplete="username" /></label>
-      <label>비밀번호<input type="password" name="password" required autocomplete="current-password" /></label>
+      <label>이메일<input type="email" name="email" required autocomplete="username" placeholder="name@company.com" /></label>
+      <label>비밀번호<input type="password" name="password" required autocomplete="current-password" placeholder="비밀번호를 입력하세요" /></label>
       <button type="submit" class="auth-btn primary">로그인</button>
       <div class="auth-msg" id="loginMsg"></div>
     </form>
 
-    <!-- 가입 -->
     <form id="signupForm" class="auth-form" style="display:none;">
-      <label>회사명<input type="text" name="company" required placeholder="예: GreenWave Korea Co., Ltd." /></label>
-      <label>이메일<input type="email" name="email" required autocomplete="username" /></label>
-      <label>비밀번호<input type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="8자 이상, 영문 대소문자+숫자" /></label>
+      <label>회사명<input type="text" name="company" required placeholder="예: GreenWave Korea" /></label>
+      <label>이메일<input type="email" name="email" required autocomplete="username" placeholder="name@company.com" /></label>
+      <label>비밀번호<input type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="8자 이상, 영문과 숫자 포함" /></label>
       <button type="submit" class="auth-btn primary">가입하고 인증코드 받기</button>
       <div class="auth-msg" id="signupMsg"></div>
     </form>
 
-    <!-- 이메일 인증코드 -->
     <form id="confirmForm" class="auth-form" style="display:none;">
       <div class="auth-note">가입하신 이메일로 받은 6자리 인증코드를 입력하세요.</div>
       <label>인증코드<input type="text" name="code" required inputmode="numeric" placeholder="예: 123456" /></label>
@@ -47,14 +45,13 @@
       <div class="auth-msg" id="confirmMsg"></div>
     </form>
 
-    <div class="auth-foot">로그인하면 회사별로 분리된 데이터로 AI 선적 추천을 받을 수 있습니다.</div>
-  </div>
+    <div class="auth-foot">로그인 후 회사별로 분리된 업무 공간을 이용할 수 있습니다.</div>
+  </section>
 </div>
 
-<script src="common.js?v=9"></script>
+<script src="common.js?v=17"></script>
 <script>
-// 이미 로그인 상태면 바로 대시보드로.
-if (idToken()) location.href = "index.html";
+if (idToken()) location.href = "dashboard.html";
 
 const forms = { login: document.getElementById("loginForm"), signup: document.getElementById("signupForm"), confirm: document.getElementById("confirmForm") };
 function showForm(name) {
@@ -65,8 +62,7 @@ document.querySelectorAll(".auth-tab").forEach((btn) => btn.addEventListener("cl
   showForm(btn.dataset.tab);
 }));
 
-let pendingSignup = null; // { email, password }
-
+let pendingSignup = null;
 forms.login.addEventListener("submit", async (e) => {
   e.preventDefault();
   const msg = document.getElementById("loginMsg");
@@ -74,13 +70,12 @@ forms.login.addEventListener("submit", async (e) => {
   const fd = new FormData(e.target);
   try {
     await ppLogin(fd.get("email").trim(), fd.get("password"));
-    location.href = "index.html";
+    location.href = "dashboard.html";
   } catch (err) {
     msg.className = "auth-msg err";
-    msg.textContent = /UserNotConfirmed/i.test(err.message) ? "이메일 인증이 완료되지 않았습니다. 가입 탭에서 인증코드를 입력하세요." : `로그인 실패: ${err.message}`;
+    msg.textContent = /UserNotConfirmed/i.test(err.message) ? "이메일 인증이 완료되지 않았습니다. 회사 가입 탭에서 인증코드를 입력하세요." : `로그인 실패: ${err.message}`;
   }
 });
-
 forms.signup.addEventListener("submit", async (e) => {
   e.preventDefault();
   const msg = document.getElementById("signupMsg");
@@ -97,17 +92,17 @@ forms.signup.addEventListener("submit", async (e) => {
     msg.textContent = /UsernameExists/i.test(err.message) ? "이미 가입된 이메일입니다. 로그인 탭을 이용하세요." : `가입 실패: ${err.message}`;
   }
 });
-
 forms.confirm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const msg = document.getElementById("confirmMsg");
+  if (!pendingSignup) { msg.className = "auth-msg err"; msg.textContent = "먼저 회사 가입 정보를 입력해 주세요."; return; }
   msg.className = "auth-msg"; msg.textContent = "인증 중…";
   const code = new FormData(e.target).get("code").trim();
   try {
     await ppConfirmSignUp(pendingSignup.email, code);
     msg.className = "auth-msg ok"; msg.textContent = "인증 완료! 로그인 중…";
     await ppLogin(pendingSignup.email, pendingSignup.password);
-    location.href = "index.html";
+    location.href = "dashboard.html";
   } catch (err) {
     msg.className = "auth-msg err"; msg.textContent = `인증 실패: ${err.message}`;
   }

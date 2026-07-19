@@ -108,6 +108,7 @@ export function buildBrief(input) {
     company_stats: companySt,
     budget: budgetCtx,
     schedule: {
+      source: schedule?.length ? "actual" : "estimated",
       window: { from: windowFrom, to: windowTo },
       totalGenerated: sailingsAll.length,
       boardable: boardable.length,
@@ -134,6 +135,29 @@ export function summarizePortfolio(briefs) {
     const budgetTotal = b.shipment.budgetTotal ?? null;
     const exp = (cheapestTotal != null && budgetTotal != null) ? Math.max(0, cheapestTotal - budgetTotal) : 0;
     const lean = b.timing?.lean ?? "INSUFFICIENT";
+    const actualCandidates = b.schedule.source === "actual" ? b.schedule.candidates : [];
+    const candidatePool = actualCandidates.some((c) => c.feasible)
+      ? actualCandidates.filter((c) => c.feasible)
+      : actualCandidates;
+    const scheduleOptions = [...candidatePool]
+      .sort((a, z) => {
+        const aRecommended = cf && a.vessel === cf.vessel && a.etd === cf.etd ? 1 : 0;
+        const zRecommended = cf && z.vessel === cf.vessel && z.etd === cf.etd ? 1 : 0;
+        return (zRecommended - aRecommended)
+          || (Number(z.comfortable) - Number(a.comfortable))
+          || (Number(z.direct) - Number(a.direct))
+          || (a.priceUSD - z.priceUSD)
+          || a.etd.localeCompare(z.etd);
+      })
+      .slice(0, 3)
+      .map((c) => ({
+        operator: c.operator, vessel: c.vessel, voyage: c.voyage,
+        etd: c.etd, eta: c.eta, direct: c.direct, transitDays: c.transitDays,
+        shipdaId: c.shipdaId, sourceUrl: c.sourceUrl,
+        priceUSD: c.priceUSD, totalUSD: c.totalUSD,
+        deliveryBufferDays: c.deliveryBufferDays, feasible: c.feasible,
+        comfortable: c.comfortable, vsBudgetPct: c.vsBudgetPct,
+      }));
     leanCount[lean] = (leanCount[lean] ?? 0) + 1;
     if (cheapestTotal != null) totalCheapest += cheapestTotal;
     if (budgetTotal != null) totalBudget += budgetTotal;
@@ -144,7 +168,8 @@ export function summarizePortfolio(briefs) {
       cargoReadyDate: b.shipment.cargoReadyDate, requiredDeliveryDate: b.shipment.requiredDeliveryDate,
       lean, feasibleCount: b.schedule.feasibleCount, deadlineRisk: b.schedule.feasibleCount === 0,
       cheapestPerFeu: cf?.priceUSD ?? null, cheapestTotal,
-      recommendedSailing: cf ? { vessel: cf.vessel, operator: cf.operator, service: cf.service, etd: cf.etd, eta: cf.eta, direct: cf.direct, priceUSDPerFeu: cf.priceUSD } : null,
+      recommendedSailing: cf ? { vessel: cf.vessel, operator: cf.operator, service: cf.service, etd: cf.etd, eta: cf.eta, direct: cf.direct, priceUSDPerFeu: cf.priceUSD, shipdaId: cf.shipdaId, sourceUrl: cf.sourceUrl } : null,
+      scheduleOptions,
       budgetTotal, vsBudgetPct: (cheapestTotal != null && budgetTotal) ? Number(((cheapestTotal / budgetTotal - 1) * 100).toFixed(1)) : null,
       marketPctile: b.market?.pctile52 ?? null,
     };

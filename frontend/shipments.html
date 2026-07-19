@@ -4,18 +4,17 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PortPulse — 선적 의사결정</title>
-<link rel="stylesheet" href="common.css?v=9" />
+<link rel="stylesheet" href="common.css?v=17" />
 </head>
 <body>
 <div class="wrap">
   <div id="headerMount"></div>
   <div id="navMount"></div>
 
-  <div class="section-title">선적 의사결정 <span class="sub">· 샘플 포트폴리오(가상 데이터)</span></div>
+  <div class="page-intro"><span class="eyebrow">DECISION EXAMPLE</span><h2>선적 의사결정 예시</h2><p>견적과 납기 조건을 비교하는 방식을 예시 데이터로 확인할 수 있습니다.</p></div>
   <div id="portfolioSummary" class="kpi-strip"></div>
   <div id="decisions"><div class="loading">불러오는 중…</div></div>
 
-  <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
 </div>
 
 <button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
@@ -34,13 +33,12 @@
   </div>
 </div>
 
-<script src="common.js?v=9"></script>
+<script src="common.js?v=17"></script>
 <script>
 function main() {
   renderBrandHeader();
   renderNav("shipments");
-  document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
-  document.getElementById("updated").textContent = "샘플 포트폴리오(가상) · 결정엔진 decision-v1.0.0";
+  document.getElementById("updated").textContent = "선적 판단 방식 예시";
   initChat();
   loadDecisions("decisions", "portfolioSummary");
 }
