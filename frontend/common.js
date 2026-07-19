@@ -619,14 +619,14 @@ function shipCardHtml(s) {
     <div class="pf-ship ${s.stance}">
       <div class="pf-ship-head">
         <span class="pf-pri">#${s.priority ?? "-"}</span>
-        <span class="pf-stance ${s.stance}">${sm.icon} ${sm.label}</span>
+        <span class="pf-stance ${s.stance}">${sm.label}</span>
         <span class="pf-headline">${esc(s.headline || "")}</span>
         <span class="pf-id">${esc(s.id || "")}</span>
       </div>
       <div class="pf-meta">${meta.join(" · ")}</div>
-      <div class="pf-sail">🚢 ${sailTxt}</div>
+      <div class="pf-sail"><span class="pfl">권장 항차</span>${sailTxt}</div>
       ${s.why ? `<div class="pf-why">${esc(s.why)}</div>` : ""}
-      ${s.action ? `<div class="pf-action">✅ ${esc(s.action)}</div>` : ""}
+      ${s.action ? `<div class="pf-action"><span class="pfl">오늘 할 일</span>${esc(s.action)}</div>` : ""}
     </div>`;
 }
 
@@ -649,7 +649,7 @@ function renderPortfolio(mountId, data, compact) {
 
   const heroHtml = `
     <div class="reco-hero">
-      <div><span class="stance-badge">📦 포트폴리오 종합 판정</span></div>
+      <div class="reco-eyebrow"><span class="en">AI SHIPPING RECOMMENDATION</span><span class="ko">포트폴리오 종합 판정${data.asOf ? ` · ${esc(data.asOf)} 기준` : ""}</span></div>
       <div class="verdict">${esc(r.verdict || "")}</div>
       <div class="pf-kpis">${kpiHtml}</div>
       ${compact ? `<a class="more-link" href="recommendation.html">전체 포트폴리오 분석 →</a>` : ""}
@@ -673,7 +673,7 @@ function renderPortfolio(mountId, data, compact) {
       <div class="reco-body">
         <div class="reco-keys">${keys}</div>
         <div class="reco-narr"><p>${narrHtml}</p></div>
-        ${actionsHtml ? `<div class="reco-col act"><h4>✅ 포트폴리오 차원 오늘 할 일</h4><ul>${actionsHtml}</ul></div>` : ""}
+        ${actionsHtml ? `<div class="reco-col act"><h4>포트폴리오 차원 오늘 할 일</h4><ul>${actionsHtml}</ul></div>` : ""}
         <div class="section-title" style="margin-top:18px;">선적별 판단 <span class="sub">· 우선순위 순</span></div>
         <div class="pf-ships">${ships.map(shipCardHtml).join("")}</div>
         <div class="reco-foot">
@@ -698,7 +698,7 @@ async function loadRecommendation(mountId = "recoMount", compact = false) {
     // 아직 계산된 적 없음 → 실행 유도
     mount.innerHTML = `
       <div class="reco"><div class="reco-empty">
-        <div class="ttl">📦 AI 포트폴리오 분석</div>
+        <div class="ttl">AI 포트폴리오 분석</div>
         <div class="dsc">예정 선적들을 실제 스케줄·시장운임과 매칭해 "어느 건을 언제·어떤 배·얼마에 보낼지" 종합 판단합니다.</div>
         <button class="auth-btn primary" id="recoRun" style="max-width:220px;">분석 실행 (수십 초)</button>
       </div></div>`;
@@ -713,7 +713,7 @@ async function loadRecommendation(mountId = "recoMount", compact = false) {
 async function refreshRecommendation(mountId = "recoMount", compact = false) {
   const mount = document.getElementById(mountId);
   if (!mount) return;
-  mount.innerHTML = `<div class="reco"><div class="reco-loading">🧠 포트폴리오 분석 중… (스케줄 매칭 + AI 종합, 최대 1분)</div></div>`;
+  mount.innerHTML = `<div class="reco"><div class="reco-loading">포트폴리오 분석 중… (스케줄 매칭 + AI 종합, 최대 1분)</div></div>`;
   try {
     await authedFetch(`${API_URL}/recommendations/refresh`, { method: "POST" });
   } catch (e) {
