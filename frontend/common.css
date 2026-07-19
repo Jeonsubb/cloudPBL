@@ -409,6 +409,28 @@ a.chat-cite:hover { background: #dbeafe; border-color: #93c5fd; }
 .reco-empty .ttl { font-size: 15px; font-weight: 800; color: var(--navy); }
 .reco-empty .dsc { font-size: 12.5px; color: var(--muted); max-width: 420px; line-height: 1.6; }
 .reco-empty .auth-btn { margin-top: 8px; }
+.reco-onboarding { min-height: 250px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 24px; padding: 34px 38px; border: 1px solid #d6e2f2; border-radius: 16px; background: linear-gradient(135deg,#fff 0%,#f4f8ff 100%); box-shadow: 0 12px 32px rgba(13,49,120,.06); }
+.reco-onboarding.compact { min-height: 205px; grid-template-columns: minmax(0,1fr) auto; padding: 30px 34px; border: 0; color: #fff; background: linear-gradient(125deg,#0d3178 0%,#1d5dd8 100%); }
+.onboard-icon { width: 72px; height: 72px; display: grid; place-items: center; border: 1px solid #d5e2f5; border-radius: 20px; color: var(--navy); background: #e8f0fe; font-size: 30px; }
+.onboard-kicker { display: block; margin-bottom: 8px; color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .13em; }
+.reco-onboarding h3 { margin: 0; color: var(--navy); font-size: 24px; line-height: 1.28; letter-spacing: -.035em; }
+.reco-onboarding p { max-width: 650px; margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
+.onboard-steps, .onboard-points { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 18px; }
+.onboard-steps span { display: inline-flex; align-items: center; gap: 7px; color: #46617f; font-size: 11.5px; font-weight: 700; }
+.onboard-steps b { width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%; color: var(--navy); background: #dce8fa; font-size: 10px; }
+.onboard-actions { min-width: 194px; display: flex; flex-direction: column; gap: 9px; }
+.onboard-primary, .onboard-secondary { min-height: 42px; padding: 11px 16px; border-radius: 9px; font-family: inherit; font-size: 12.5px; font-weight: 800; text-align: center; text-decoration: none; cursor: pointer; }
+.onboard-primary { border: 1px solid var(--navy); color: #fff; background: var(--navy); }
+.onboard-primary:hover { background: var(--blue); border-color: var(--blue); }
+.onboard-secondary { border: 1px solid #c8d6e8; color: var(--navy); background: #fff; }
+.onboard-secondary:hover { border-color: var(--blue); color: var(--blue); }
+.reco-onboarding.compact .onboard-kicker { color: #aecbff; }
+.reco-onboarding.compact h3 { color: #fff; font-size: 26px; }
+.reco-onboarding.compact p { color: rgba(255,255,255,.75); }
+.reco-onboarding.compact .onboard-primary { min-width: 174px; border-color: #fff; color: var(--navy); background: #fff; }
+.reco-onboarding.compact .onboard-primary:hover { background: #edf4ff; }
+.onboard-points span { color: rgba(255,255,255,.86); font-size: 11.5px; font-weight: 700; }
+.onboard-points span::before { content: "✓"; margin-right: 6px; color: #bfd6ff; }
 .pf-ships { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
 .pf-ships.compact { grid-template-columns: 1fr; margin-top: 14px; }
 .pf-ship { background: var(--panel); border: none; border-left: 3px solid var(--faint); border-radius: 0; padding: 14px 16px; }
@@ -662,6 +684,9 @@ html { scroll-behavior: smooth; }
 .auth-shell .auth-btn { min-height: 45px; }
 
 @media (max-width: 1000px) {
+  .reco-onboarding, .reco-onboarding.compact { grid-template-columns: 1fr; }
+  .onboard-actions { min-width: 0; width: 100%; }
+  .reco-onboarding.compact .onboard-primary { width: 100%; min-width: 0; }
   .landing-hero { grid-template-columns: 1fr; padding-top: 70px; }
   .hero-product { max-width: 650px; transform: none; }
   .schedule-story { grid-template-columns: 1fr; }
@@ -673,6 +698,7 @@ html { scroll-behavior: smooth; }
   .decision-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
+  .reco-onboarding, .reco-onboarding.compact { min-height: 0; padding: 25px 21px; }
   .landing-nav { height: 62px; padding: 0 18px; }
   .landing-nav nav { display: none; }
   .landing-login { margin-left: auto; }

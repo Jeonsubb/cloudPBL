@@ -558,6 +558,20 @@ function initChat() {
    현재 선적 폼은 "견적/추천에 필요한 화물 정보"만 받는다 — 주문번호·선적ID·고객사명 같은 사내 참조번호는
    없다(엑셀 3시트에는 있지만, 견적을 받는 데 필요한 정보가 아니라서 이 폼에는 의도적으로 뺐다).
    /shipments/current POST가 저장, GET이 프리필. */
+let companyStatusCache;
+async function getCompanyStatus({ force = false } = {}) {
+  if (!force && companyStatusCache !== undefined) return companyStatusCache;
+  try {
+    companyStatusCache = await (await authedFetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json();
+    return companyStatusCache;
+  } catch {
+    return null;
+  }
+}
+function hasRegisteredShipment(status) {
+  return Boolean(status?.excel || status?.currentShipment);
+}
+
 async function refreshConnectStatus() {
   const excelIcon = document.getElementById("excelIcon");
   const excelLabel = document.getElementById("excelLabel");
@@ -566,7 +580,8 @@ async function refreshConnectStatus() {
   const curSub = document.getElementById("curSub");
   if (!excelIcon) return null;
   try {
-    const status = await (await authedFetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json();
+    const status = await getCompanyStatus({ force: true });
+    if (!status) throw new Error("회사 데이터 상태를 확인하지 못했습니다");
     if (status.excel) {
       excelIcon.classList.replace("empty", "ok"); excelIcon.textContent = "✅";
       excelLabel.textContent = `엑셀 업로드됨 · ${new Date(status.excel.lastModified).toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" })}`;
@@ -663,7 +678,7 @@ function initConnectPanel(onDataChanged) {
   });
   document.getElementById("curFormCancelBtn").addEventListener("click", () => toggleCurForm(false));
   document.getElementById("curForm").addEventListener("submit", (ev) => submitCurForm(ev, onDataChanged));
-  refreshConnectStatus();
+  return refreshConnectStatus();
 }
 
 /* ---------- AI 선적 추천 (포트폴리오) ----------
@@ -952,11 +967,60 @@ function renderPortfolio(mountId, data, compact) {
   if (btn) btn.addEventListener("click", () => refreshRecommendation(mountId, compact));
 }
 
-// 저장된 최신 포트폴리오를 즉시 렌더. 없으면 "분석 실행" 안내.
-async function loadRecommendation(mountId = "recoMount", compact = false) {
+function renderRecommendationOnboarding(mountId, compact) {
+  const mount = document.getElementById(mountId);
+  if (!mount) return;
+  if (compact) {
+    mount.innerHTML = `
+      <section class="reco-onboarding compact" aria-labelledby="firstShipmentTitle">
+        <div>
+          <span class="onboard-kicker">FIRST SHIPPING ANALYSIS</span>
+          <h3 id="firstShipmentTitle">첫 선적을 등록하고 AI 추천을 받아보세요.</h3>
+          <p>선적 일정과 예산을 등록하면 실제 운항 일정에서 적합한 항차를 찾고, 지금 예약해야 하는 이유까지 정리해드립니다.</p>
+          <div class="onboard-points"><span>실제 항차 비교</span><span>납기 위험 확인</span><span>예산 근거 제공</span></div>
+        </div>
+        <a class="onboard-primary" href="recommendation.html#connectPanel">선적 등록 시작 <span>→</span></a>
+      </section>`;
+    return;
+  }
+
+  mount.innerHTML = `
+    <section class="reco-onboarding" aria-labelledby="emptyRecommendationTitle">
+      <div class="onboard-icon" aria-hidden="true">🚢</div>
+      <div>
+        <span class="onboard-kicker">READY FOR YOUR FIRST PLAN</span>
+        <h3 id="emptyRecommendationTitle">아직 분석할 선적이 없습니다.</h3>
+        <p>위 등록 카드에서 회사 양식을 올리거나 이번 선적을 직접 입력해 주세요. 등록이 끝나면 AI가 실제 운항 일정·납기·예산을 함께 비교합니다.</p>
+        <div class="onboard-steps">
+          <span><b>1</b> 선적 정보 등록</span><span><b>2</b> 실제 스케줄 매칭</span><span><b>3</b> 추천 결과 확인</span>
+        </div>
+      </div>
+      <div class="onboard-actions">
+        <button type="button" class="onboard-primary" data-onboard-action="excel">엑셀로 여러 건 등록</button>
+        <button type="button" class="onboard-secondary" data-onboard-action="current">이번 선적 직접 입력</button>
+      </div>
+    </section>`;
+
+  mount.querySelector('[data-onboard-action="excel"]')?.addEventListener("click", () => {
+    document.getElementById("connectPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("excelUploadBtn")?.click();
+  });
+  mount.querySelector('[data-onboard-action="current"]')?.addEventListener("click", () => {
+    document.getElementById("connectPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("curFormToggleBtn")?.click();
+  });
+}
+
+// 등록 데이터가 있으면 저장된 최신 포트폴리오를 렌더하고, 신규 사용자는 등록 안내만 보여준다.
+async function loadRecommendation(mountId = "recoMount", compact = false, knownStatus = undefined) {
   const mount = document.getElementById(mountId);
   if (!mount) return;
   try {
+    const status = knownStatus === undefined ? await getCompanyStatus() : knownStatus;
+    if (status && !hasRegisteredShipment(status)) {
+      renderRecommendationOnboarding(mountId, compact);
+      return;
+    }
     const data = await (await authedFetch(`${API_URL}/recommendations`, { signal: AbortSignal.timeout(10000) })).json();
     if (data.status === "ready" && data.recommendation) return renderPortfolio(mountId, data, compact);
     // 아직 계산된 적 없음 → 실행 유도
