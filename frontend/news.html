@@ -4,14 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PortPulse — 해운 뉴스</title>
-<link rel="stylesheet" href="common.css?v=9" />
+<link rel="stylesheet" href="common.css?v=17" />
 </head>
 <body>
 <div class="wrap">
   <div id="headerMount"></div>
   <div id="navMount"></div>
 
-  <div class="section-title">오늘의 해운 뉴스</div>
+  <div class="page-intro"><span class="eyebrow">SHIPPING BRIEFING</span><h2>오늘의 해운 뉴스</h2><p>선적과 운임에 영향을 줄 수 있는 주요 이슈를 모았습니다.</p></div>
   <div class="card">
     <div class="news-card-body" style="max-height:none;">
       <ul class="news-list" id="newsList"><li class="loading">불러오는 중…</li></ul>
@@ -19,15 +19,14 @@
     <button type="button" id="newsMoreBtn" style="display:none;">더보기</button>
   </div>
 
-  <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
 </div>
 
 <button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
 <div id="chatPanel">
   <div class="chat-head">
     <div>
-      <div class="title">🤖 PortPulse 어시스턴트</div>
-      <div class="sub">시장·뉴스·선적 현황 기반 · AI 참고 의견</div>
+      <div class="title">PortPulse 어시스턴트</div>
+      <div class="sub">시장·뉴스·회사 선적을 함께 확인합니다</div>
     </div>
     <button type="button" id="chatCloseBtn" aria-label="닫기">×</button>
   </div>
@@ -38,13 +37,12 @@
   </div>
 </div>
 
-<script src="common.js?v=9"></script>
+<script src="common.js?v=17"></script>
 <script>
 function main() {
   renderBrandHeader();
   renderNav("news");
-  document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
-  document.getElementById("updated").textContent = "해사신문·해운산업신문·쉬핑뉴스넷·해사정보신문 RSS";
+  document.getElementById("updated").textContent = "최근 수집된 주요 해운 이슈";
   initChat();
   document.getElementById("newsMoreBtn").addEventListener("click", () => loadMoreNews("newsList", "newsMoreBtn"));
   loadNews("newsList", "newsMoreBtn", false);

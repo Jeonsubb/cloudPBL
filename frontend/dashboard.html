@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PortPulse — 업무 홈</title>
+<link rel="stylesheet" href="common.css?v=17" />
+</head>
+<body>
+<div class="wrap app-home">
+  <div id="headerMount"></div>
+  <div id="navMount"></div>
+
+  <section class="dashboard-welcome">
+    <div>
+      <div class="eyebrow">TODAY'S SHIPPING DESK</div>
+      <h2><span id="welcomeCompany">회사</span>님의 선적 업무를 한눈에 확인하세요.</h2>
+      <p>회사 선적을 등록하면 현재 운임과 실제 출항 일정에 맞춰 우선 처리할 항목을 정리해 드립니다.</p>
+    </div>
+    <a class="btn-primary" href="recommendation.html#connectPanel">새 선적 등록</a>
+  </section>
+
+  <div class="status-strip" id="statusStrip">
+    <span class="si"><span class="dot2 empty" id="ssExcelDot"></span> <span id="ssExcelText">회사 데이터 확인 중…</span></span>
+    <span class="si"><span class="dot2 empty" id="ssCurDot"></span> <span id="ssCurText">현재 선적 확인 중…</span></span>
+    <a href="recommendation.html">데이터 관리</a>
+  </div>
+
+  <div class="section-heading">
+    <div><span class="eyebrow">NEXT ACTION</span><h3>최근 AI 선적 판단</h3><p>등록한 선적 중 먼저 확인해야 할 결과만 보여드립니다.</p></div>
+    <a class="text-link" href="recommendation.html">전체 분석 보기</a>
+  </div>
+  <div id="recoMount"><div class="reco"><div class="reco-loading">최근 분석을 불러오는 중…</div></div></div>
+
+  <div class="dashboard-grid">
+    <section>
+      <div class="section-heading compact">
+        <div><span class="eyebrow">MARKET</span><h3>오늘의 운임 흐름</h3></div>
+        <a class="text-link" href="market.html">시황 전체</a>
+      </div>
+      <div id="hero"></div>
+    </section>
+    <section>
+      <div class="section-heading compact">
+        <div><span class="eyebrow">BRIEFING</span><h3>오늘의 해운 뉴스</h3></div>
+        <a class="text-link" href="news.html">뉴스 전체</a>
+      </div>
+      <div class="card"><div class="news-card-body"><ul class="news-list" id="newsList"><li class="loading">불러오는 중…</li></ul></div></div>
+    </section>
+  </div>
+
+  <div class="section-heading">
+    <div><span class="eyebrow">UPCOMING SAILINGS</span><h3>가까운 출항 일정</h3><p>부산 출발 일정 중 가장 임박한 항차를 간단히 확인하세요.</p></div>
+    <a class="text-link" href="schedule.html">노선별 일정 보기</a>
+  </div>
+  <div class="sched-strip" id="schedStrip"></div>
+  <p class="service-note">운항 일정은 공개 스케줄 기준이며, 표시 운임은 비교를 돕기 위한 참고 추정치입니다.</p>
+</div>
+
+<button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
+<div id="chatPanel">
+  <div class="chat-head"><div><div class="title">PortPulse 어시스턴트</div><div class="sub">시장·뉴스·회사 선적을 함께 확인합니다</div></div><button type="button" id="chatCloseBtn" aria-label="닫기">×</button></div>
+  <div class="chat-body" id="chatBody"></div>
+  <div class="chat-input-row"><input type="text" id="chatInput" placeholder="예: 이번 주 먼저 예약할 선적은?" /><button type="button" id="chatSendBtn" aria-label="전송">➤</button></div>
+</div>
+
+<script src="common.js?v=17"></script>
+<script>
+async function loadHomeStatus() {
+  const status = await refreshHomeStatusSilently();
+  const excelDot = document.getElementById("ssExcelDot"), excelText = document.getElementById("ssExcelText");
+  const curDot = document.getElementById("ssCurDot"), curText = document.getElementById("ssCurText");
+  if (!status) { excelText.textContent = "회사 데이터 상태를 확인하지 못했습니다"; curText.textContent = ""; return; }
+  if (status.excel) { excelDot.classList.replace("empty", "ok"); excelText.textContent = "회사 데이터 연결됨"; }
+  else { excelText.textContent = "회사 데이터가 아직 없습니다"; }
+  if (status.currentShipment) { curDot.classList.replace("empty", "ok"); curText.textContent = "현재 선적 등록됨"; }
+  else if (status.excel) { curDot.classList.replace("empty", "ok"); curText.textContent = "엑셀의 현재 선적 사용 중"; }
+  else { curText.textContent = "분석할 선적을 등록해 주세요"; }
+}
+async function refreshHomeStatusSilently() {
+  try { return await (await authedFetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json(); }
+  catch { return null; }
+}
+async function main() {
+  renderBrandHeader();
+  renderNav("home");
+  document.getElementById("welcomeCompany").textContent = companyName();
+  document.getElementById("updated").textContent = "오늘의 시장과 선적 현황";
+  initChat();
+  loadHomeStatus();
+  loadRecommendation("recoMount", true);
+  loadNews("newsList", null, true);
+  renderSchedCards("schedStrip", 3);
+  await loadMarketSeries("hero", null);
+}
+main();
+</script>
+</body>
+</html>

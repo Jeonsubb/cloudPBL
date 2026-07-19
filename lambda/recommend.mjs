@@ -60,7 +60,12 @@ export async function loadCompany(companyId = DEFAULT_COMPANY_ID) {
   if (COMPANY_BUCKET) {
     try {
       const parsed = await parseCompanyFromS3(COMPANY_BUCKET, companyExcelKey(companyId));
-      base = { policy: parsed.policy ?? fallback.policy, current: parsed.current ?? fallback.current, history: parsed.history?.length ? parsed.history : fallback.history };
+      base = {
+        policy: parsed.policy ?? fallback.policy,
+        current: parsed.current ?? fallback.current,
+        history: parsed.history?.length ? parsed.history : fallback.history,
+        planned: parsed.planned ?? [],
+      };
       currentSource = parsed.current ? "excel" : "bundled";
     } catch (e) { console.warn("S3 회사데이터(엑셀) 로드 실패, 번들 폴백:", e.message); }
   }
@@ -119,7 +124,12 @@ const SYSTEM_PROMPT = `당신은 한국 수출기업의 국제물류를 자문�
 화주가 "지금 이 화물을 어떻게 보내야 하나"를 물으면, 시황·자사 이력·실제 선박 스케줄을 종합해
 결단력 있고 구체적인 추천을 한국어로 제시한다.
 
-원칙:
+절대 문체 규칙(최우선):
+- verdict, narrative, keyNumbers.note, actions, risks, watchTriggers 등 사용자가 읽는 모든 한국어 문장은 반드시 "합니다/입니다/하세요" 형태의 존댓말로 완결한다.
+- "한다/된다/이다/진다/적절하다/필요하다/권장한다/추천한다/해야 한다"로 문장을 끝내는 평서형 문어체는 절대 사용하지 않는다.
+- JSON을 출력하기 전에 모든 한국어 문장의 종결어미를 스스로 다시 검사하고, 존댓말이 아닌 문장이 하나라도 있으면 수정한 뒤 출력한다.
+
+내용 원칙:
 - 근거로 인용하는 모든 수치는 입력 브리프에 있는 값만 사용한다. 없는 숫자(미래 운임, 정확 ETA 등)는 절대 지어내지 않는다.
 - 뻔한 양비론 금지. 데이터가 한쪽을 가리키면 분명하게 그쪽을 추천하고, 왜인지 숫자로 설득한다.
 - "과거 대비 지금 수준이 어떤지", "회사 예산·과거 실거래 대비 어떤지", "왜 이 스케줄인지", "어느 포워더인지"까지 짚는다.
@@ -200,7 +210,12 @@ const PORTFOLIO_SYSTEM_PROMPT = `당신은 한국 수출기업의 국제물류�
 회사가 앞으로 보내야 하는 '여러 건의 선적(포트폴리오)'을 받아, 실제 선박 스케줄·합성 시장운임·납기·자사 이력·시황을 종합해
 "어느 건을 지금 예약하고 어느 건은 미루며, 각각 어떤 배로 얼마에 보낼지"를 우선순위와 함께 결단력 있게 제시한다.
 
-원칙:
+절대 문체 규칙(최우선):
+- verdict, summaryNarrative, portfolioKeyNumbers.note, shipments.headline/why/action, actions 등 사용자가 읽는 모든 한국어 문장은 반드시 "합니다/입니다/하세요" 형태의 존댓말로 완결한다.
+- "한다/된다/이다/진다/적절하다/필요하다/권장한다/추천한다/해야 한다"로 문장을 끝내는 평서형 문어체는 절대 사용하지 않는다.
+- JSON을 출력하기 전에 모든 한국어 문장의 종결어미를 스스로 다시 검사하고, 존댓말이 아닌 문장이 하나라도 있으면 수정한 뒤 출력한다.
+
+내용 원칙:
 - 인용하는 모든 수치는 입력 포트폴리오 데이터에 있는 값만 쓴다. 없는 숫자는 지어내지 않는다.
 - 각 선적의 stance/priority/추천항차는 입력의 cheapestFeasible·lean·feasibleCount·vsBudgetPct·납기를 근거로 정한다.
 - 납기위험(feasibleCount 0 또는 lean DEADLINE_RISK)은 최우선으로 다룬다.

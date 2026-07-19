@@ -3,46 +3,42 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PortPulse — 실시간 스케줄</title>
-<link rel="stylesheet" href="common.css?v=9" />
+<title>PortPulse — 운항 일정</title>
+<link rel="stylesheet" href="common.css?v=17" />
 </head>
 <body>
-<div class="wrap">
+<div class="wrap schedule-page">
   <div id="headerMount"></div>
   <div id="navMount"></div>
 
-  <div class="section-title">실시간 스케줄 · 참고 운임 <span class="sub">· 부산 출발 전 항로</span></div>
-  <div id="schedStrip"></div>
-  <div class="sched-disclaimer">* 스케줄(선사·선박명·ETD·ETA)은 ShipDa 공개 스케줄 조회 API 실측값이며 매주 자동 재수집됩니다. 운임은 확정운임이 아니며, 항로별 KCCI 지수 앵커가에 시장비율·± 랜덤 변동을 적용한 참고 추정치로 물류 시황이나 실제 계약 조건에 따라 달라질 수 있습니다.</div>
+  <div class="page-intro">
+    <span class="eyebrow">SAILING SCHEDULE</span>
+    <h2>출발지와 목적지로 운항 일정을 찾아보세요.</h2>
+    <p>노선을 선택하면 출항일, 도착일, 직항 여부와 참고 운임을 한눈에 비교할 수 있습니다.</p>
+  </div>
 
-  <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
+  <section class="schedule-finder">
+    <div id="scheduleFilters" class="schedule-filters"><div class="loading">노선 정보를 불러오는 중…</div></div>
+    <div id="scheduleResults"></div>
+  </section>
+  <p class="service-note">운항 일정은 공개 스케줄을 기준으로 주기적으로 갱신됩니다. 표시 운임은 확정 견적이 아닌 비교용 참고값이며 실제 계약 조건에 따라 달라질 수 있습니다.</p>
 </div>
 
 <button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
 <div id="chatPanel">
-  <div class="chat-head">
-    <div>
-      <div class="title">🤖 PortPulse 어시스턴트</div>
-      <div class="sub">시장·뉴스·선적 현황 기반 · AI 참고 의견</div>
-    </div>
-    <button type="button" id="chatCloseBtn" aria-label="닫기">×</button>
-  </div>
+  <div class="chat-head"><div><div class="title">PortPulse 어시스턴트</div><div class="sub">시장·뉴스·회사 선적을 함께 확인합니다</div></div><button type="button" id="chatCloseBtn" aria-label="닫기">×</button></div>
   <div class="chat-body" id="chatBody"></div>
-  <div class="chat-input-row">
-    <input type="text" id="chatInput" placeholder="예: 오늘 KCCI 어때? 긴급한 선적 있어?" />
-    <button type="button" id="chatSendBtn">➤</button>
-  </div>
+  <div class="chat-input-row"><input type="text" id="chatInput" placeholder="예: 함부르크행 일정 중 직항만 알려줘" /><button type="button" id="chatSendBtn" aria-label="전송">➤</button></div>
 </div>
 
-<script src="common.js?v=9"></script>
+<script src="common.js?v=17"></script>
 <script>
 function main() {
   renderBrandHeader();
   renderNav("schedule");
-  document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
-  document.getElementById("updated").textContent = "ShipDa 실시간 스케줄 조회 · 매주 자동 재수집";
+  document.getElementById("updated").textContent = "가까운 출항 일정 기준";
   initChat();
-  renderSchedCards("schedStrip");
+  renderScheduleExplorer("scheduleFilters", "scheduleResults");
 }
 main();
 </script>

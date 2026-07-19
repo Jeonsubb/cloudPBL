@@ -4,46 +4,62 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PortPulse — AI 선적 추천</title>
-<link rel="stylesheet" href="common.css?v=9" />
+<link rel="stylesheet" href="common.css?v=17" />
 </head>
 <body>
 <div class="wrap">
   <div id="headerMount"></div>
   <div id="navMount"></div>
 
-  <div class="section-title">회사 데이터 연결</div>
-  <div class="connect" id="connectPanel">
+  <div class="page-intro">
+    <span class="eyebrow">AI SHIPPING PLAN</span>
+    <h2>선적을 등록하면 적합한 운항 일정부터 찾아드립니다.</h2>
+    <p>회사 기준과 시장 흐름을 함께 반영해 추천 이유, 실제 일정 후보 3개와 오늘 할 일을 정리합니다.</p>
+  </div>
+
+  <div class="step-title"><span>1</span><div><h3>분석할 선적 등록</h3><p>이번 선적만 바로 입력하거나 회사 양식을 업로드하세요.</p></div></div>
+  <div class="connect shipment-register" id="connectPanel">
     <div class="connect-row">
-      <div class="connect-item">
-        <div class="connect-icon empty" id="excelIcon">📄</div>
-        <div class="connect-text">
-          <div class="ct-label" id="excelLabel">엑셀 미업로드</div>
-          <div class="ct-sub">정책·과거실적(+선택: 현재선적) · PortPulse_Company_Input_Template.xlsx</div>
+      <div class="connect-method">
+        <div class="connect-item">
+          <div class="connect-icon empty" id="excelIcon">📄</div>
+          <div class="connect-text">
+            <div class="ct-kicker">여러 건 한 번에</div>
+            <div class="ct-label" id="excelLabel">엑셀 미업로드</div>
+            <div class="ct-sub">여러 선적과 회사 기준을 한 번에 등록할 수 있습니다.</div>
+          </div>
+        </div>
+        <div class="connect-actions">
+          <a class="connect-btn" href="PortPulse_Company_Input_Template.xlsx" download>양식 다운로드</a>
+          <button type="button" class="connect-btn primary" id="excelUploadBtn">엑셀 업로드</button>
+          <input type="file" id="excelFileInput" accept=".xlsx" />
         </div>
       </div>
-      <a class="connect-btn" href="PortPulse_Company_Input_Template.xlsx" download>양식 다운로드</a>
-      <button type="button" class="connect-btn primary" id="excelUploadBtn">엑셀 업로드</button>
-      <input type="file" id="excelFileInput" accept=".xlsx" />
-      <span class="connect-sep"></span>
-      <div class="connect-item">
-        <div class="connect-icon empty" id="curIcon">🚢</div>
-        <div class="connect-text">
-          <div class="ct-label" id="curLabel">현재 선적 미입력</div>
-          <div class="ct-sub" id="curSub">엑셀 없이 이번 선적 정보만 바로 입력할 수도 있어요</div>
+      <div class="connect-method featured">
+        <div class="connect-item">
+          <div class="connect-icon empty" id="curIcon">🚢</div>
+          <div class="connect-text">
+            <div class="ct-kicker">이번 선적 빠른 분석</div>
+            <div class="ct-label" id="curLabel">현재 선적 미입력</div>
+            <div class="ct-sub" id="curSub">출발지·도착지·납기만 입력해도 바로 추천할 수 있어요.</div>
+          </div>
         </div>
+        <button type="button" class="connect-btn featured-action" id="curFormToggleBtn">이번 선적 정보 입력/수정</button>
       </div>
-      <button type="button" class="connect-btn" id="curFormToggleBtn">이번 선적 정보 입력/수정</button>
       <span class="connect-status" id="connectStatusMsg"></span>
     </div>
 
     <!-- 이 폼은 "견적/추천을 받기 위해 필요한 화물 정보"만 받는다.
          주문번호·선적ID·고객사명 같은 사내 참조번호는 없다 — 저장 시 자동 채번된다. -->
     <form class="cform" id="curForm">
-      <div class="cform-hint">견적에 필요한 화물 정보만 입력하면 됩니다. 사내 주문번호·거래처명 등은 필요 없어요.</div>
+      <div class="cform-head">
+        <div><span>이번 선적 정보</span><strong>운항 일정 추천에 필요한 내용만 입력하세요.</strong></div>
+        <p>출발지, 도착지, 최종 배송지를 먼저 확인한 뒤 화물과 예산 정보를 입력하세요.</p>
+      </div>
       <div class="cform-grid">
-        <div><label>출발지(POL)</label><input name="pol" placeholder="Busan, KR" value="Busan, KR" required></div>
-        <div><label>도착지(POD)</label><input name="pod" placeholder="Hamburg, DE" required></div>
-        <div><label>최종 배송지</label><input name="deliveryLocation" placeholder="Hamburg DC, DE"></div>
+        <div class="cform-field emphasis"><label><span>01</span> 출발지(POL)</label><input name="pol" placeholder="예: Busan, KR" value="Busan, KR" required></div>
+        <div class="cform-field emphasis"><label><span>02</span> 도착지(POD)</label><input name="pod" placeholder="예: Hamburg, DE" required></div>
+        <div class="cform-field emphasis"><label><span>03</span> 최종 배송지</label><input name="deliveryLocation" placeholder="예: Hamburg DC, DE"></div>
         <div><label>화물 준비일</label><input type="date" name="cargoReadyDate" required></div>
         <div><label>납기일</label><input type="date" name="requiredDeliveryDate" required></div>
         <div><label>장비</label>
@@ -75,18 +91,16 @@
     </form>
   </div>
 
-  <div class="section-title">AI 선적 추천 <span class="sub">· 회사 데이터 × 시황 × 실제 스케줄</span></div>
+  <div class="step-title"><span>2</span><div><h3>추천 결과 확인</h3><p>결론을 먼저 확인하고, 아래에서 근거와 대안 일정을 비교하세요.</p></div></div>
   <div id="recoMount"><div class="reco"><div class="reco-loading">추천 분석 중…</div></div></div>
-
-  <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
 </div>
 
 <button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
 <div id="chatPanel">
   <div class="chat-head">
     <div>
-      <div class="title">🤖 PortPulse 어시스턴트</div>
-      <div class="sub">시장·뉴스·선적 현황 기반 · AI 참고 의견</div>
+      <div class="title">PortPulse 어시스턴트</div>
+      <div class="sub">시장·뉴스·회사 선적을 함께 확인합니다</div>
     </div>
     <button type="button" id="chatCloseBtn" aria-label="닫기">×</button>
   </div>
@@ -97,13 +111,12 @@
   </div>
 </div>
 
-<script src="common.js?v=9"></script>
+<script src="common.js?v=17"></script>
 <script>
 function main() {
   renderBrandHeader();
   renderNav("reco");
-  document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
-  document.getElementById("updated").textContent = "회사 데이터를 연결하면 추천이 그 데이터로 갱신됩니다";
+  document.getElementById("updated").textContent = "회사 데이터와 최신 운항 일정 기준";
   initChat();
   initConnectPanel(() => refreshRecommendation("recoMount", false));
   loadRecommendation("recoMount", false);

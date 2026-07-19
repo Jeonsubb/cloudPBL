@@ -3,101 +3,90 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PortPulse — 종합 대시보드</title>
-<link rel="stylesheet" href="common.css?v=9" />
+<meta name="description" content="회사 선적과 실제 운항 일정을 연결해 지금 예약할 항차를 알려주는 PortPulse" />
+<title>PortPulse — 선적 판단을 더 빠르게</title>
+<link rel="stylesheet" href="common.css?v=17" />
 </head>
-<body>
-<div class="wrap">
-  <div id="headerMount"></div>
-  <div id="navMount"></div>
+<body class="landing-page">
+<header class="landing-nav">
+  <a class="landing-brand" href="#top" aria-label="PortPulse 홈"><span class="brand-mark"></span><strong>PortPulse</strong></a>
+  <nav aria-label="서비스 소개">
+    <a href="#how">서비스</a>
+    <a href="#result">분석 결과</a>
+    <a href="#schedule-preview">운항 일정</a>
+  </nav>
+  <a class="landing-login" id="landingLogin" href="login.html">로그인</a>
+</header>
 
-  <div class="status-strip" id="statusStrip">
-    <span class="si"><span class="dot2 empty" id="ssExcelDot"></span> <span id="ssExcelText">엑셀 확인 중…</span></span>
-    <span class="si"><span class="dot2 empty" id="ssCurDot"></span> <span id="ssCurText">현재 선적 확인 중…</span></span>
-    <a href="recommendation.html">회사 데이터 관리 →</a>
-  </div>
+<main id="top">
+  <section class="landing-hero">
+    <div class="landing-hero-copy">
+      <div class="eyebrow light">SHIPPING DECISION, SIMPLIFIED</div>
+      <h1>선적 일정과 운임,<br><span>이제 한 번에 <em>판단하세요.</em></span></h1>
+      <p>회사 선적 정보를 등록하면 실제 출항 일정과 시장 흐름을 비교해 지금 확인할 항차와 다음 행동을 정리합니다.</p>
+      <div class="landing-cta-row">
+        <a class="landing-cta primary" id="heroLogin" href="login.html">PortPulse 시작하기</a>
+        <a class="landing-cta secondary" href="#result">결과 미리보기</a>
+      </div>
+      <div class="landing-proof"><span>실제 운항 일정 비교</span><span>회사 기준 반영</span><span>AI 판단 근거 제공</span></div>
+    </div>
+    <div class="hero-product" aria-label="PortPulse 서비스 예시">
+      <div class="product-top"><span class="mini-brand"><i></i>PortPulse</span><span>오늘의 선적 브리핑</span></div>
+      <div class="product-route"><span>BUSAN</span><div class="route-line"><i></i><b>→</b><i></i></div><span>HAMBURG</span></div>
+      <div class="product-verdict"><small>AI 추천</small><strong>이번 주 안에 예약하세요</strong><p>납기를 지키는 직항 3편 중 예산에 가장 가까운 일정입니다.</p></div>
+      <div class="product-stats"><div><small>추천 출항</small><b>07.28</b></div><div><small>예상 도착</small><b>09.01</b></div><div><small>참고 운임</small><b>$3,240</b></div></div>
+    </div>
+  </section>
 
-  <div class="section-title">AI 선적 추천 <span class="sub">· 요약</span></div>
-  <div id="recoMount"><div class="reco"><div class="reco-loading">추천 분석 중…</div></div></div>
+  <section class="landing-section intro" id="how">
+    <div class="landing-section-head"><span class="eyebrow">HOW IT WORKS</span><h2>복잡한 선적 판단을 세 단계로</h2><p>대시보드를 읽는 법부터 배울 필요 없이, 필요한 정보만 입력하면 됩니다.</p></div>
+    <div class="how-grid">
+      <article><span>01</span><h3>회사 선적 등록</h3><p>출발지, 목적지, 화물 준비일, 납기와 예산을 입력합니다.</p></article>
+      <article><span>02</span><h3>적합한 일정 비교</h3><p>실제 운항 일정 중 납기와 환적 조건을 충족하는 항차를 추립니다.</p></article>
+      <article><span>03</span><h3>근거 있는 선택</h3><p>추천 일정 3개와 운임·납기 차이, 오늘 할 일을 함께 확인합니다.</p></article>
+    </div>
+  </section>
 
-  <div class="top-grid">
-    <div>
-      <div class="section-title">오늘의 해운 뉴스 <a class="more-link" href="news.html">전체 보기 →</a></div>
-      <div class="card">
-        <div class="news-card-body">
-          <ul class="news-list" id="newsList"><li class="loading">불러오는 중…</li></ul>
+  <section class="landing-result" id="result">
+    <div class="landing-section-head inverse"><span class="eyebrow light">RESULT PREVIEW</span><h2>결과는 이렇게 보여드립니다.</h2><p>결론을 먼저 보고, 필요할 때 근거와 대안 일정을 확인할 수 있습니다.</p></div>
+    <div class="result-window">
+      <div class="result-sidebar"><div class="result-logo"><i></i>PortPulse</div><span class="active">오늘의 판단</span><span>선적 관리</span><span>운항 일정</span><span>시장 브리핑</span></div>
+      <div class="result-content">
+        <div class="result-title"><div><small>GREENWAVE KOREA</small><h3>부산 → 함부르크 선적</h3></div><span class="status-good">지금 예약</span></div>
+        <div class="result-callout"><small>AI 종합 판단</small><strong>7월 28일 출항편을 우선 협의하세요.</strong><p>화물 준비 후 첫 직항이며 납기 버퍼 9일을 확보합니다. 예산 대비 2.4% 높아 운임 조정 여지가 있습니다.</p></div>
+        <div class="result-options">
+          <article class="best"><div class="option-rank">추천 1</div><h4>ONE · MOL TREASURE</h4><p>07.28 부산 출발 → 09.01 함부르크 도착</p><div><b>$3,240</b><span>직항 · 35일</span></div></article>
+          <article><div class="option-rank">대안 2</div><h4>HMM · HMM HANUL</h4><p>08.01 부산 출발 → 09.05 함부르크 도착</p><div><b>$3,180</b><span>직항 · 35일</span></div></article>
+          <article><div class="option-rank">대안 3</div><h4>MAERSK · EUGEN MAERSK</h4><p>07.30 부산 출발 → 09.07 함부르크 도착</p><div><b>$3,410</b><span>환적 · 39일</span></div></article>
         </div>
       </div>
     </div>
-    <div>
-      <div class="section-title">해운 운임 지수 <a class="more-link" href="market.html">환율·금리 전체 →</a></div>
-      <div id="hero"></div>
+  </section>
+
+  <section class="landing-section schedule-story" id="schedule-preview">
+    <div class="schedule-story-copy"><span class="eyebrow">LIVE SCHEDULE MATCHING</span><h2>전체 일정을 뒤지지 않아도<br>내 선적에 맞는 항차부터.</h2><p>목적지, 화물 준비일, 납기와 환적 조건을 반영해 비교할 가치가 있는 일정 3개를 먼저 보여드립니다.</p><ul><li>출발지·목적지별 빠른 탐색</li><li>직항과 환적, 운송기간 비교</li><li>예산 대비 참고 운임 차이 확인</li></ul></div>
+    <div class="schedule-mini">
+      <div class="schedule-toggle"><span>출발지 <b>Busan</b></span><span>목적지 <b>Hamburg</b></span></div>
+      <div class="mini-sailing"><div><small>ONE</small><strong>MOL TREASURE</strong></div><div class="mini-leg"><b>07.28</b><span>35일 · 직항</span><b>09.01</b></div><strong>$3,240</strong></div>
+      <div class="mini-sailing"><div><small>HMM</small><strong>HMM HANUL</strong></div><div class="mini-leg"><b>08.01</b><span>35일 · 직항</span><b>09.05</b></div><strong>$3,180</strong></div>
+      <div class="mini-sailing muted"><div><small>MAERSK</small><strong>EUGEN MAERSK</strong></div><div class="mini-leg"><b>07.30</b><span>39일 · 환적</span><b>09.07</b></div><strong>$3,410</strong></div>
     </div>
-  </div>
+  </section>
 
-  <div class="section-title">실시간 스케줄 · 참고 운임 <span class="sub">· 부산 출발, 임박순 6건</span> <a class="more-link" href="schedule.html">전체 항로 보기 →</a></div>
-  <div class="sched-strip" id="schedStrip"></div>
-  <div class="sched-disclaimer">* 스케줄(선사·선박명·ETD·ETA)은 실제 공개 스케줄 조회 값입니다. 운임은 확정운임이 아니며 참고용 추정치로, 물류 시황이나 실제 계약 조건에 따라 달라질 수 있습니다.</div>
+  <section class="landing-final-cta"><span class="eyebrow light">START WITH YOUR SHIPMENT</span><h2>다음 선적 판단부터 PortPulse와 함께하세요.</h2><p>회사 기준과 실제 일정을 연결하면, 확인해야 할 선택지가 분명해집니다.</p><a class="landing-cta primary" id="bottomLogin" href="login.html">로그인하고 시작하기</a></section>
+</main>
 
-  <div class="section-title">선적 의사결정 <span class="sub">· 샘플 포트폴리오(가상)</span> <a class="more-link" href="shipments.html">전체 보기 →</a></div>
-  <div id="portfolioSummary" class="kpi-strip"></div>
-  <div id="decisions"><div class="loading">불러오는 중…</div></div>
+<footer class="landing-footer"><a class="landing-brand" href="#top"><span class="brand-mark"></span><strong>PortPulse</strong></a><p>수출입 기업을 위한 선적 의사결정 서비스</p><span>© 2026 PortPulse</span></footer>
 
-  <div id="apiLabel" class="foot" style="margin-top:28px;"></div>
-</div>
-
-<button id="chatFab" type="button" title="PortPulse AI 어시스턴트">💬</button>
-<div id="chatPanel">
-  <div class="chat-head">
-    <div>
-      <div class="title">🤖 PortPulse 어시스턴트</div>
-      <div class="sub">시장·뉴스·선적 현황 기반 · AI 참고 의견</div>
-    </div>
-    <button type="button" id="chatCloseBtn" aria-label="닫기">×</button>
-  </div>
-  <div class="chat-body" id="chatBody"></div>
-  <div class="chat-input-row">
-    <input type="text" id="chatInput" placeholder="예: 오늘 KCCI 어때? 긴급한 선적 있어?" />
-    <button type="button" id="chatSendBtn">➤</button>
-  </div>
-</div>
-
-<script src="common.js?v=9"></script>
+<script src="common.js?v=17"></script>
 <script>
-async function loadHomeStatus() {
-  const status = await refreshHomeStatusSilently();
-  const excelDot = document.getElementById("ssExcelDot"), excelText = document.getElementById("ssExcelText");
-  const curDot = document.getElementById("ssCurDot"), curText = document.getElementById("ssCurText");
-  if (!status) { excelText.textContent = "상태 조회 실패"; curText.textContent = ""; return; }
-  if (status.excel) { excelDot.classList.replace("empty", "ok"); excelText.textContent = "엑셀 업로드됨"; }
-  else { excelText.textContent = "엑셀 미업로드(데모 데이터 사용 중)"; }
-  if (status.currentShipment) { curDot.classList.replace("empty", "ok"); curText.textContent = "현재 선적: 직접 입력됨"; }
-  else if (status.excel) { curDot.classList.replace("empty", "ok"); curText.textContent = "현재 선적: 엑셀 값 사용 중"; }
-  else { curText.textContent = "현재 선적 미입력"; }
+if (idToken()) {
+  for (const id of ["landingLogin", "heroLogin", "bottomLogin"]) {
+    const link = document.getElementById(id);
+    link.href = "dashboard.html";
+    link.textContent = id === "landingLogin" ? "대시보드" : "대시보드 열기";
+  }
 }
-async function refreshHomeStatusSilently() {
-  try { return await (await authedFetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json(); }
-  catch { return null; }
-}
-
-async function main() {
-  renderBrandHeader();
-  renderNav("home");
-  document.getElementById("apiLabel").textContent = `API: ${API_URL}`;
-  initChat();
-  loadHomeStatus();
-  loadRecommendation("recoMount", true);
-  loadNews("newsList", null, true);
-  loadDecisions("decisions", "portfolioSummary", 2);
-  renderSchedCards("schedStrip", 6);
-
-  const ok = await loadMarketSeries("hero", null);
-  const now = new Date();
-  document.getElementById("updated").innerHTML = ok
-    ? `<strong>${now.toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" })}</strong> 기준<br>AWS API Gateway → Lambda → DynamoDB 실시간 조회`
-    : `<span class="err">API 연결 실패</span>`;
-}
-main();
 </script>
 </body>
 </html>

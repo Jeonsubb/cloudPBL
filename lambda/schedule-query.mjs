@@ -49,6 +49,7 @@ export async function loadRouteSchedule(scheduleTable, routeCode, fromIso, toIso
         routeCode, service: null, operator: i.carrier,
         vessel: i.vessel, voyage: i.voyage, direct: i.direct, transitDays: i.transitDays,
         etd: i.etd, eta: i.eta, priceUSD: i.priceUSD, priceBasis: i.priceBasis,
+        shipdaId: i.shipdaId, sourceUrl: i.sourceUrl,
       }))
       .sort((a, b) => a.etd.localeCompare(b.etd));
   } catch (e) { console.warn(`스케줄 ${routeCode} 조회 실패:`, e.message); return []; }
@@ -56,9 +57,11 @@ export async function loadRouteSchedule(scheduleTable, routeCode, fromIso, toIso
 
 function toCard(routeCode, pod, item) {
   return {
+    routeCode,
     originName: "Busan", destName: pod.name, destCC: pod.cc,
     vessel: item.vessel, operator: item.operator, etd: item.etd, eta: item.eta,
-    direct: item.direct, priceUSD: item.priceUSD,
+    direct: item.direct, transitDays: item.transitDays, priceUSD: item.priceUSD,
+    shipdaId: item.shipdaId, sourceUrl: item.sourceUrl,
   };
 }
 
