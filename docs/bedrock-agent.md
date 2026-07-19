@@ -85,12 +85,15 @@
                                                                                               ▼
                                                                                      portpulse-agent
                                                                                               │ (필요 시)
-                                                              ┌───────────────┬───────────────┼───────────────┐
-                                                        market-data       news-data     company-data     web-search
-                                                              └───────────────┴───────┬───────┴───────────────┘
-                                                                          portpulse-agent-tools Lambda
+                                                     ┌────────────────┬───────────────┬┴──────────────┬────────────────┐
+                                               Knowledge Base    market-data      news-data     company-data     web-search
+                                                     │                └───────────────┴┬──────────────┴────────────────┘
+                                             S3 문서 + S3 Vectors              portpulse-agent-tools Lambda
                                                                        (DynamoDB ×3 · S3 · Tavily)
 ```
+
+Knowledge Base를 사용한 InvokeAgent 응답의 attribution은 `lambda/chat.mjs`가 문장 구간과 문서 메타데이터로 정규화한다.
+프론트는 해당 문장 바로 뒤에 `[1]` 출처 배지를 표시하며, 배지를 누르면 메타데이터의 원문 페이지를 연다.
 
 ## 배포·운영
 
