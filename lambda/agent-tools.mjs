@@ -6,16 +6,15 @@
 // 액션그룹 구성(infra/lib/portpulse-agent.mjs의 functionSchema와 1:1 대응):
 //   market-data  get_market_snapshot / get_market_series
 //   news-data    get_top_news
-//   company-data get_shipment_decisions / get_current_shipment / get_latest_recommendation
+//   company-data get_shipment_portfolio / get_current_shipment / get_latest_recommendation / generate_recommendation
 //   web-search   web_search (Tavily — Secrets Manager portpulse/web-search 미설정 시 안내만 반환)
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import { SERIES as ECOS_SERIES } from "./series.mjs";
 import { KCCI_SERIES } from "./kcci-series.mjs";
-import { buildDecisionCard } from "./decision.mjs";
 import { SHIPMENTS, QUOTES } from "./sample-portfolio.mjs";
-import { loadCompany } from "./recommend.mjs";
+import { loadCompany, computeRecommendation } from "./recommend.mjs";
 import { DEFAULT_COMPANY_ID, recoPartitionKey } from "./tenant.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -134,28 +133,55 @@ async function getTopNews({ date, limit }) {
 
 // ── company-data ────────────────────────────────────────────
 
-// 샘플 포트폴리오 6건의 결정카드 — 규칙엔진(decision.mjs)이 확정한 행동/숫자.
-async function getShipmentDecisions() {
+// 샘플 포트폴리오의 원본 데이터 — 선적·견적·시장가를 그대로 반환. Agent가 직접 판단한다.
+async function getShipmentPortfolio() {
   const marketByRoute = {};
   for (const s of KCCI_SERIES.filter((x) => x.id !== "KCCI")) {
     const two = await latestTwo(`KCCI#${s.id}`);
     if (!two) continue;
     const pct = two.prev?.value ? ((two.latest.value - two.prev.value) / two.prev.value) * 100 : 0;
-    marketByRoute[s.id] = { name: s.label.replace(/\s*\(.*\)/, ""), value: two.latest.value, weeklyChangePct: pct, observedAt: two.latest.date };
+    marketByRoute[s.id] = { name: s.label.replace(/\s*\(.*\)/, ""), value: two.latest.value, weeklyChangePct: Number(pct.toFixed(2)), observedAt: two.latest.date };
   }
   const asOf = todayKst();
   const shipments = SHIPMENTS.map((sh) => {
     const quotes = QUOTES.filter((q) => q.shipmentId === sh.id);
-    const card = buildDecisionCard(sh, quotes, marketByRoute, asOf);
+    // 견적의 KCCI 비교 가능 해상비(FEU당) 계산
+    const quotesWithComparable = quotes.map((q) => {
+      const comparableCharges = q.charges.filter((c) => c.kcciComparable);
+      const comparableTotal = comparableCharges.reduce((s, c) => s + c.amount * c.quantity, 0);
+      const comparablePerFeu = sh.containerCount > 0 ? Math.round(comparableTotal / sh.containerCount) : comparableTotal;
+      return {
+        id: q.id, forwarder: q.forwarder, carrier: q.carrier,
+        total: q.total, currency: q.currency,
+        comparablePerFeu,
+        validUntil: q.validUntil, quotedAt: q.quotedAt,
+        plannedEtd: q.plannedEtd, plannedEta: q.plannedEta,
+        direct: q.direct, transshipments: q.transshipments,
+      };
+    });
+    const market = sh.routeCode ? marketByRoute[sh.routeCode] : null;
+    const daysToDelivery = Math.ceil((new Date(`${sh.requiredDeliveryDate}T00:00:00+09:00`) - new Date(`${asOf}T00:00:00+09:00`)) / 86_400_000);
     return {
-      id: sh.id, route: `${sh.originLabel}→${sh.destinationLabel}`,
-      equipment: `${sh.equipment}×${sh.containerCount}`, targetBudget: `${sh.targetBudget} ${sh.currency}`,
-      action: card.actionLabel, priority: card.priority, deadline: card.deadline,
-      budgetVariancePct: card.budgetVariancePct, kcciVariancePct: card.kcciVariancePct,
-      reasons: card.reasons,
+      id: sh.id,
+      route: `${sh.originLabel}→${sh.destinationLabel}`,
+      routeCode: sh.routeCode,
+      equipment: sh.equipment, containerCount: sh.containerCount,
+      cargoProfile: sh.cargoProfile, loadType: sh.loadType,
+      description: sh.description,
+      incoterm: sh.incoterm, bookingController: sh.bookingController,
+      targetBudget: sh.targetBudget, currency: sh.currency,
+      cargoReadyDate: sh.cargoReadyDate,
+      requiredDeliveryDate: sh.requiredDeliveryDate,
+      daysToDelivery,
+      quotes: quotesWithComparable,
+      market: market ? { routeName: market.name, kcciPerFeu: market.value, weeklyChangePct: market.weeklyChangePct, observedAt: market.observedAt } : null,
     };
   });
-  return { asOf, note: "가상 샘플 포트폴리오(데모). 행동/숫자는 규칙엔진 확정값 — 바꾸지 말고 인용할 것.", shipments };
+  return {
+    asOf,
+    note: "가상 샘플 포트폴리오(데모). Agent가 각 선적의 견적·예산·시장가·납기를 분석해 행동을 직접 판단한다.",
+    shipments,
+  };
 }
 
 // 회사의 "이번 선적"(UI 폼 제출본 > 업로드 엑셀 > 번들 샘플 순).
@@ -184,6 +210,27 @@ async function getLatestRecommendation(_params, companyId) {
     confidence: item.confidence, recommendedVessel: item.recommendedVessel,
     narrative: item.reco?.narrative ?? null, actions: item.reco?.actions ?? null,
   };
+}
+
+// AI 선적 추천 생성 — Agent가 호출하면 시장·스케줄·뉴스를 종합해 추천을 생성·저장한다.
+async function generateRecommendationTool(_params, companyId) {
+  try {
+    const result = await computeRecommendation({ store: true, companyId });
+    return {
+      status: "success",
+      asOf: result.asOf,
+      stance: result.recommendation.stance,
+      verdict: result.recommendation.verdict,
+      confidence: result.recommendation.confidence,
+      recommendedSailing: result.recommendation.recommendedSailing ?? null,
+      narrative: result.recommendation.narrative,
+      actions: result.recommendation.actions ?? [],
+      risks: result.recommendation.risks ?? [],
+      nextReviewDate: result.recommendation.nextReviewDate ?? null,
+    };
+  } catch (e) {
+    return { status: "error", error: e.message };
+  }
 }
 
 // ── web-search ──────────────────────────────────────────────
@@ -234,9 +281,10 @@ const TOOLS = {
   get_market_snapshot: getMarketSnapshot,
   get_market_series: getMarketSeries,
   get_top_news: getTopNews,
-  get_shipment_decisions: getShipmentDecisions,
+  get_shipment_portfolio: getShipmentPortfolio,
   get_current_shipment: getCurrentShipment,
   get_latest_recommendation: getLatestRecommendation,
+  generate_recommendation: generateRecommendationTool,
   web_search: webSearch,
 };
 

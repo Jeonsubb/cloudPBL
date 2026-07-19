@@ -224,6 +224,7 @@ export class MarketStack extends Stack {
       marketTable: table,
       newsTable,
       recoTable,
+      scheduleTable,
       companyBucket,
       companyKey,
       // 서울(ap-northeast-2)에서 Sonnet 4는 온디맨드 원본 ID 대신 APAC 크로스리전 추론 프로필로 호출해야 한다.
