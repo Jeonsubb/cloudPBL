@@ -67,6 +67,22 @@ npx cdk bootstrap                      # 계정·리전 최초 1회
 ECOS_API_KEY=발급키 npx cdk deploy     # 키를 Lambda 환경변수로 주입
 ```
 
+### Knowledge Base 문서 동기화
+
+Bedrock Knowledge Base는 일반 S3 버킷의 원본 문서를 읽고, 임베딩은 별도의 S3 Vector Bucket/Index에 저장한다.
+인프라 배포 후 아래 명령이 `/Users/kimminseo/knowledge-base`를 원본 문서 버킷의 `docs/` prefix와 동기화하고
+Knowledge Base ingestion 완료까지 기다린다.
+
+```bash
+npm run rag:sync
+
+# 다른 문서 폴더나 스택/리전을 사용할 때
+KB_DOCS_DIR=/path/to/knowledge-base STACK_NAME=portpulse-market PORTPULSE_REGION=ap-northeast-2 npm run rag:sync
+```
+
+새 문서를 추가하거나 기존 문서를 수정·삭제한 뒤 같은 명령을 다시 실행하면 된다. `--delete` 동기화를 사용하므로
+로컬 폴더에서 삭제한 문서는 S3에서도 삭제되고 다음 ingestion에 반영된다.
+
 배포 후 확인:
 
 ```bash

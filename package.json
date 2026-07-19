@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "collect": "node src/local-run.mjs"
+    "collect": "node src/local-run.mjs",
+    "rag:sync": "bash scripts/sync-rag.sh"
   }
 }

@@ -331,11 +331,36 @@ async function loadMoreNews(listId, moreBtnId) {
 /* ---------- 플로팅 챗봇(전 페이지 공통) ---------- */
 const chatHistory = [];
 let chatOpened = false;
-function chatAppend(role, text) {
+function chatAppend(role, text, citations = []) {
   const body = document.getElementById("chatBody");
   const div = document.createElement("div");
   div.className = `chat-msg ${role === "user" ? "user" : "bot"}`;
-  div.textContent = text;
+  const messageText = document.createElement("div");
+  messageText.textContent = text;
+  div.appendChild(messageText);
+  if (role !== "user" && citations.length) {
+    const sources = document.createElement("div");
+    sources.className = "chat-sources";
+    citations.forEach((citation, index) => {
+      const source = citation.url ? document.createElement("a") : document.createElement("span");
+      source.className = "chat-source";
+      source.textContent = `${citation.organization || citation.title}${citation.page ? ` p.${citation.page}` : ""}`;
+      source.title = citation.excerpt || citation.title;
+      if (citation.url) {
+        source.href = citation.url;
+        source.target = "_blank";
+        source.rel = "noopener noreferrer";
+      }
+      sources.appendChild(source);
+      if (index === 1 && citations.length > 2) {
+        const more = document.createElement("span");
+        more.className = "chat-source more";
+        more.textContent = `+${citations.length - 2}`;
+        sources.appendChild(more);
+      }
+    });
+    div.appendChild(sources);
+  }
   body.appendChild(div);
   body.scrollTop = body.scrollHeight;
   return div;
@@ -345,7 +370,7 @@ function toggleChat(open) {
   panel.classList.toggle("open", open);
   if (open && !chatOpened) {
     chatOpened = true;
-    chatAppend("bot", "안녕하세요! 오늘 시장 상황이나 선적 현황에 대해 물어보세요.\n(참고: 아직 회사 실제 문서·계약서는 연결되어 있지 않아요 — 지금은 대시보드에 보이는 데이터로만 답해요.)");
+    chatAppend("bot", "안녕하세요! 오늘 시장 상황, 선적 현황, 해운 도메인 문서에 대해 물어보세요.");
     document.getElementById("chatInput").focus();
   }
 }
@@ -368,7 +393,7 @@ async function sendChatMessage() {
     })).json();
     pending.remove();
     if (data.reply) {
-      chatAppend("bot", data.reply);
+      chatAppend("bot", data.reply, Array.isArray(data.citations) ? data.citations : []);
       chatHistory.push({ role: "user", text: message }, { role: "assistant", text: data.reply });
     } else {
       chatAppend("bot", `오류: ${data.error || "응답을 받지 못했습니다"}`);

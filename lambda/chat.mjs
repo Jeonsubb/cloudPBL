@@ -1,137 +1,153 @@
-// 플로팅 챗봇 API. POST /chat { message, history? } → Bedrock 응답.
-// 오늘의 시장 스냅샷(환율/기준금리/KCCI) + 뉴스 상위 + 샘플 선적 포트폴리오를 컨텍스트로 붙여서 답한다.
-// 아직 RAG/실제 회사 문서 연동은 없음 — 그건 이후 단계(사용자 안내 문구로 명시).
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
-import { SERIES as ECOS_SERIES } from "./series.mjs";
-import { KCCI_SERIES } from "./kcci-series.mjs";
-import { buildDecisionCard } from "./decision.mjs";
-import { SHIPMENTS, QUOTES } from "./sample-portfolio.mjs";
+// 플로팅 챗봇 API. POST /chat { message, history? } → Bedrock Agent 응답.
+// Bedrock Agent(InvokeAgent)를 통해 응답을 생성한다.
+// Agent가 Action Group(DynamoDB 조회), Knowledge Base(해운 도메인), 웹검색을 알아서 판단해 사용.
+import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const bedrock = new BedrockRuntimeClient({});
-const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? "global.anthropic.claude-opus-4-5-20251101-v1:0";
-const MAX_HISTORY_TURNS = 12;
+const agentClient = new BedrockAgentRuntimeClient({});
+const s3 = new S3Client({});
+const AGENT_ID = process.env.BEDROCK_AGENT_ID ?? "";
+const AGENT_ALIAS_ID = process.env.BEDROCK_AGENT_ALIAS_ID ?? "";
+const KB_BUCKET = process.env.KB_BUCKET ?? "";
+const MAX_HISTORY_TURNS = 10;
 
 function response(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
 }
 
-function todayKst() {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+function makeSessionId(event) {
+  // 동일 사용자의 대화 연속성을 위해 세션 ID 유지. 없으면 랜덤 생성.
+  const raw = event.headers?.["x-session-id"] || crypto.randomUUID();
+  // Agent 세션 ID 규칙: 영숫자 + ._:- (2~100자)
+  return raw.replace(/[^0-9a-zA-Z._:-]/g, "-").slice(0, 100) || crypto.randomUUID();
 }
 
-async function latestTwo(tableName, seriesKey) {
-  const r = await ddb.send(new QueryCommand({
-    TableName: tableName,
-    KeyConditionExpression: "series = :s",
-    ExpressionAttributeValues: { ":s": seriesKey },
-    ScanIndexForward: false, Limit: 2,
+function metadataValue(metadata, key) {
+  const value = metadata?.[key];
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  return String(value.stringValue ?? value.numberValue ?? value.booleanValue ?? "");
+}
+
+function parseS3Uri(uri) {
+  const match = /^s3:\/\/([^/]+)\/(.+)$/.exec(uri || "");
+  return match ? { bucket: match[1], key: decodeURIComponent(match[2]) } : null;
+}
+
+function citationFromReference(reference) {
+  const metadata = reference.metadata ?? {};
+  const uri = reference.location?.s3Location?.uri ?? "";
+  const s3Location = parseS3Uri(uri);
+  const fallbackName = s3Location?.key.split("/").pop() ?? "출처 문서";
+  const pageValue = metadataValue(metadata, "x-amz-bedrock-kb-document-page-number");
+  const page = pageValue && Number.isFinite(Number(pageValue)) ? Number(pageValue) : null;
+
+  return {
+    title: metadataValue(metadata, "title") || fallbackName,
+    organization: metadataValue(metadata, "organization"),
+    page,
+    excerpt: String(reference.content?.text ?? "").slice(0, 500),
+    sourcePageUrl: metadataValue(metadata, "source_page_url"),
+    s3Location,
+  };
+}
+
+async function finalizeCitations(rawCitations) {
+  const unique = new Map();
+  for (const citation of rawCitations) {
+    for (const reference of citation.retrievedReferences ?? []) {
+      const item = citationFromReference(reference);
+      const key = `${item.s3Location?.bucket ?? ""}/${item.s3Location?.key ?? item.title}#${item.page ?? ""}`;
+      if (!unique.has(key)) unique.set(key, item);
+    }
+  }
+
+  return Promise.all([...unique.values()].map(async (item, index) => {
+    let url = item.sourcePageUrl || "";
+    if (item.s3Location && item.s3Location.bucket === KB_BUCKET) {
+      url = await getSignedUrl(
+        s3,
+        new GetObjectCommand({ Bucket: item.s3Location.bucket, Key: item.s3Location.key }),
+        { expiresIn: 900 },
+      );
+      if (item.page) url += `#page=${item.page}`;
+    }
+
+    return {
+      id: `source-${index + 1}`,
+      title: item.title,
+      organization: item.organization,
+      page: item.page,
+      excerpt: item.excerpt,
+      url,
+    };
   }));
-  const [latest, prev] = r.Items ?? [];
-  return latest ? { latest, prev } : null;
 }
 
-async function fetchTopNews(newsTableName, date, limit = 5) {
-  const r = await ddb.send(new QueryCommand({
-    TableName: newsTableName,
-    KeyConditionExpression: "#d = :d",
-    ExpressionAttributeNames: { "#d": "date" },
-    ExpressionAttributeValues: { ":d": date },
-  }));
-  return (r.Items ?? [])
-    .filter((it) => (it.score ?? 0) > 0 && !it.duplicate)
-    .sort((a, b) => b.score - a.score || b.pubDate.localeCompare(a.pubDate))
-    .slice(0, limit)
-    .map((it) => it.title);
-}
+async function invokeAgent(message, history, sessionId) {
+  const input = {
+    agentId: AGENT_ID,
+    agentAliasId: AGENT_ALIAS_ID,
+    sessionId,
+    inputText: message,
+    enableTrace: false,
+  };
 
-async function buildMarketContext(marketTableName) {
-  const lines = [];
-  for (const s of ECOS_SERIES) {
-    const two = await latestTwo(marketTableName, `${s.prefix}#${s.id}`);
-    if (!two) continue;
-    lines.push(`- ${s.label}: ${two.latest.value}${s.unit} (${two.latest.date} 기준)`);
+  // 새 세션이면서 이전 대화 이력이 있으면 conversationHistory로 전달
+  if (history.length > 0) {
+    input.sessionState = {
+      conversationHistory: {
+        messages: history.map((h) => ({
+          role: h.role === "assistant" ? "assistant" : "user",
+          content: [{ text: String(h.text || "").slice(0, 2000) }],
+        })),
+      },
+    };
   }
-  const kcciAll = [];
-  for (const s of KCCI_SERIES) {
-    const two = await latestTwo(marketTableName, `KCCI#${s.id}`);
-    if (!two) continue;
-    const pct = two.prev?.value ? ((two.latest.value - two.prev.value) / two.prev.value) * 100 : 0;
-    kcciAll.push({ id: s.id, label: s.label.replace(/\s*\(.*\)/, ""), value: two.latest.value, pct, date: two.latest.date });
+
+  const command = new InvokeAgentCommand(input);
+  const result = await agentClient.send(command);
+
+  // Agent 응답은 스트림으로 온다 — chunk를 모아 완성 텍스트로 반환
+  const chunks = [];
+  const rawCitations = [];
+  for await (const event of result.completion || []) {
+    if (event.chunk?.bytes) {
+      chunks.push(new TextDecoder().decode(event.chunk.bytes));
+    }
+    rawCitations.push(...(event.chunk?.attribution?.citations ?? []));
   }
-  const composite = kcciAll.find((k) => k.id === "KCCI");
-  if (composite) lines.push(`- KCCI 종합지수: ${composite.value}pt (전주 ${composite.pct >= 0 ? "+" : ""}${composite.pct.toFixed(2)}%, ${composite.date})`);
-  const notable = kcciAll.filter((k) => k.id !== "KCCI" && Math.abs(k.pct) >= 3).sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
-  if (notable.length) lines.push(`- 주간 급등락 항로: ${notable.map((n) => `${n.label} ${n.pct >= 0 ? "+" : ""}${n.pct.toFixed(1)}%`).join(", ")}`);
-  return lines.join("\n");
-}
 
-function buildPortfolioContext(marketByRoute, asOf) {
-  const cards = SHIPMENTS.map((sh) => {
-    const quotes = QUOTES.filter((q) => q.shipmentId === sh.id);
-    const c = buildDecisionCard(sh, quotes, marketByRoute, asOf);
-    return `- ${sh.id} (${sh.originLabel}→${sh.destinationLabel}, ${sh.equipment}×${sh.containerCount}): ${c.actionLabel} / ${c.priority} / 마감 ${c.deadline}`;
-  });
-  return cards.join("\n");
-}
-
-async function buildMarketByRoute(marketTableName) {
-  const map = {};
-  for (const s of KCCI_SERIES.filter((x) => x.id !== "KCCI")) {
-    const two = await latestTwo(marketTableName, `KCCI#${s.id}`);
-    if (!two) continue;
-    const pct = two.prev?.value ? ((two.latest.value - two.prev.value) / two.prev.value) * 100 : 0;
-    map[s.id] = { name: s.label.replace(/\s*\(.*\)/, ""), value: two.latest.value, weeklyChangePct: pct, observedAt: two.latest.date };
-  }
-  return map;
-}
-
-function systemPrompt(marketContext, newsLines, portfolioContext, asOf) {
-  return `당신은 PortPulse 대시보드에 내장된 AI 어시스턴트입니다. 한국 수출기업의 해운·물류·환율 담당자를 돕습니다.
-오늘(${asOf}) 기준 아래 데이터를 근거로 답하세요. 데이터에 없는 내용은 지어내지 말고 모른다고 답하세요.
-아직 특정 회사의 실제 계약서·문서·사내 데이터베이스는 연결돼 있지 않습니다(추후 연동 예정) — 회사 고유 정보를 물으면 이 점을 안내하세요.
-마크다운 기호 없이 짧고 실무적인 한국어로 답하세요.
-
-[오늘의 시장 스냅샷]
-${marketContext}
-
-[오늘의 해운 뉴스 상위]
-${newsLines.map((t, i) => `${i + 1}. ${t}`).join("\n") || "(수집된 뉴스 없음)"}
-
-[샘플 선적 포트폴리오 — 가상 데모 데이터]
-${portfolioContext}`;
+  const reply = chunks.join("").trim();
+  if (!reply) throw new Error("Agent가 빈 응답을 반환했습니다.");
+  const citations = await finalizeCitations(rawCitations);
+  return { reply, citations, sessionId: result.sessionId || sessionId };
 }
 
 export async function handler(event) {
-  const marketTableName = process.env.MARKET_TABLE_NAME;
-  const newsTableName = process.env.NEWS_TABLE_NAME;
   const body = JSON.parse(event.body || "{}");
   const message = String(body.message || "").slice(0, 2000);
   const history = Array.isArray(body.history) ? body.history.slice(-MAX_HISTORY_TURNS) : [];
+
   if (!message.trim()) return response(400, { error: "message is required" });
 
-  const asOf = todayKst();
-  const [marketContext, newsLines, marketByRoute] = await Promise.all([
-    buildMarketContext(marketTableName),
-    fetchTopNews(newsTableName, asOf),
-    buildMarketByRoute(marketTableName),
-  ]);
-  const portfolioContext = buildPortfolioContext(marketByRoute, asOf);
+  if (!AGENT_ID || !AGENT_ALIAS_ID) {
+    console.error("BEDROCK_AGENT_ID 또는 BEDROCK_AGENT_ALIAS_ID 환경변수 미설정");
+    return response(500, { error: "Agent 설정이 완료되지 않았습니다." });
+  }
 
-  const messages = [
-    ...history.map((h) => ({ role: h.role === "assistant" ? "assistant" : "user", content: [{ text: String(h.text || "").slice(0, 2000) }] })),
-    { role: "user", content: [{ text: message }] },
-  ];
+  const sessionId = makeSessionId(event);
 
-  const result = await bedrock.send(new ConverseCommand({
-    modelId: MODEL_ID,
-    system: [{ text: systemPrompt(marketContext, newsLines, portfolioContext, asOf) }],
-    messages,
-    inferenceConfig: { maxTokens: 800, temperature: 0.4 },
-  }));
-  const reply = result.output?.message?.content?.[0]?.text ?? "";
-
-  return response(200, { reply });
+  try {
+    const { reply, citations, sessionId: finalSessionId } = await invokeAgent(message, history, sessionId);
+    return response(200, { reply, citations, sessionId: finalSessionId });
+  } catch (err) {
+    console.error("Agent invoke error:", err);
+    // 폴백: Agent 호출 실패 시 안내 메시지
+    return response(200, {
+      reply: "죄송합니다. 일시적으로 AI 응답을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.\n\n해운 운임, 부킹 타이밍, 리스크 요인에 대해 질문해주세요.",
+      error: err.message,
+    });
+  }
 }

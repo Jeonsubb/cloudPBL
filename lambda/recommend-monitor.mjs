@@ -18,16 +18,17 @@ async function telegram(text) {
     const s = await sm.send(new GetSecretValueCommand({ SecretId: TELEGRAM_SECRET }));
     creds = JSON.parse(s.SecretString);
   } catch (e) { console.warn("텔레그램 시크릿 로드 실패:", e.message); return; }
-  const { botToken, chatId } = creds;
-  if (!botToken || !chatId) { console.warn("botToken/chatId 없음 — 전송 건너뜀"); return; }
-  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+  const { token, chatId } = creds;
+  if (!token || !chatId) { console.warn("token/chatId 없음 — 전송 건너뜀"); return; }
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+    signal: AbortSignal.timeout(10_000),
   });
 }
 
 export async function handler() {
-  // 1) 저장 전에 직전 stance를 확보하려면 먼저 store:false로 계산
+  // 1) store:false로 계산해 직전 stance와 비교
   const { brief, recommendation } = await computeRecommendation({ store: false });
   const prev = await lastStoredStance(brief.shipment.id);
   await storeRecommendation(brief, recommendation);
@@ -40,10 +41,10 @@ export async function handler() {
     const s = recommendation.recommendedSailing ?? {};
     const m = brief.market ?? {};
     const msg =
-      `🚢 <b>${brief.company} · ${brief.shipment.id}</b>\n` +
+      `🚢 ${brief.company} · ${brief.shipment.id}\n` +
       `${brief.shipment.lane} · ${brief.shipment.equipment}×${brief.shipment.containers}\n\n` +
-      `추천이 <b>${STANCE_KO[prev] ?? prev} → ${STANCE_KO[cur] ?? cur}</b> 로 바뀌었습니다.\n` +
-      `“${recommendation.verdict}”\n\n` +
+      `추천이 ${STANCE_KO[prev] ?? prev} → ${STANCE_KO[cur] ?? cur} 로 바뀌었습니다.\n` +
+      `"${recommendation.verdict}"\n\n` +
       `· 추천 항차: ${s.operator ?? ""} ${s.vessel ?? "-"} (ETD ${s.etd ?? "-"} → ETA ${s.eta ?? "-"})\n` +
       `· ${m.routeLabel ?? ""} KCCI ${m.indexNow ?? "-"}pt · 52주 백분위 ${m.pctile52 ?? "-"}\n` +
       `· 예산 $${brief.shipment.budgetPerFeu ?? "-"}/FEU\n\n` +

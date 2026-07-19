@@ -4,8 +4,8 @@
 // 파이프라인:
 //   ① 데이터 로드(S3 회사엑셀 · DynamoDB KCCI/FX/뉴스 — 없으면 번들 스냅샷 폴백)
 //   ② recommend-engine.buildBrief() 로 모든 숫자 확정(순수 계산)
-//   ③ Bedrock(Claude)에 브리프+뉴스를 넘겨 설득형 추천 '서사'를 JSON으로 생성(숫자 창작 금지)
-//   ④ JSON 스키마 검증 + 1회 자가수정 재시도
+//   ③ Bedrock Agent에 브리프를 넘겨 설득형 추천 '서사'를 생성(Agent가 KB 참조 + 도구 호출)
+//   ④ JSON 스키마 검증 + 폴백
 //   ⑤ DynamoDB(portpulse-recommendations)에 이력 저장 후 응답
 //
 // GET /recommendations            → 현재 선적 추천(회사 데이터 기준)
@@ -14,16 +14,18 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
-import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
+import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { buildBrief } from "./recommend-engine.mjs";
 import { parseCompanyFromS3 } from "./company-input.mjs";
 import { CURRENT_SHIPMENT_KEY } from "./company-upload.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const bedrock = new BedrockRuntimeClient({});
+const agentClient = new BedrockAgentRuntimeClient({});
 const s3 = new S3Client({});
-const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? "global.anthropic.claude-opus-4-5-20251101-v1:0";
+
+const AGENT_ID = process.env.BEDROCK_AGENT_ID ?? "";
+const AGENT_ALIAS_ID = process.env.BEDROCK_AGENT_ALIAS_ID ?? "";
 const MARKET_TABLE = process.env.MARKET_TABLE_NAME;
 const NEWS_TABLE = process.env.NEWS_TABLE_NAME;
 const RECO_TABLE = process.env.RECO_TABLE_NAME;
@@ -37,8 +39,7 @@ const json = (code, body) => ({ statusCode: code, headers: { "content-type": "ap
 const todayKst = () => new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
 
 // ── 데이터 로드 ─────────────────────────────────────────────
-// policy·history는 엑셀에서만 온다. current(이번 선적)는 UI 폼 제출본이 있으면 그걸 우선하고,
-// 없으면 엑셀의 2_Current_Shipment 시트, 그마저 없으면 번들 샘플로 폴백한다.
+
 async function loadCurrentOverride() {
   if (!COMPANY_BUCKET) return null;
   try {
@@ -63,7 +64,6 @@ async function loadCompany() {
   return { ...base, currentSource };
 }
 
-// DynamoDB에서 KCCI 주간 시계열을 시도 → 부족하면 번들 생성이력 폴백
 async function loadKcci() {
   const fallback = bundled("./kcci-history.json");
   if (!MARKET_TABLE) return { series: fallback.series, compositeNow: fallback.compositeNow, source: "bundled" };
@@ -80,7 +80,6 @@ async function loadKcci() {
       if (pts.length >= 20) series[code] = pts;
     }));
   } catch (e) { console.warn("DynamoDB KCCI 로드 실패:", e.message); }
-  // 하나라도 부족하면 전체 번들 사용(정합 유지)
   if (Object.keys(series).length < routes.length) return { series: fallback.series, compositeNow: fallback.compositeNow, source: "bundled" };
   return { series, compositeNow: series.KCCI?.at(-1)?.value ?? fallback.compositeNow, source: "dynamodb" };
 }
@@ -90,85 +89,76 @@ async function loadMacro() {
   return { USD: snap.USD, baseRate: snap.baseRate };
 }
 
-async function loadNewsHeadlines(limit = 6) {
-  if (!NEWS_TABLE) return [];
-  try {
-    const r = await ddb.send(new QueryCommand({
-      TableName: NEWS_TABLE,
-      KeyConditionExpression: "#d = :d",
-      ExpressionAttributeNames: { "#d": "date" },
-      ExpressionAttributeValues: { ":d": todayKst() },
-      Limit: 40,
-    }));
-    return (r.Items ?? [])
-      .filter((i) => !i.duplicate && (i.score ?? 0) > 0)
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-      .slice(0, limit)
-      .map((i) => ({ title: i.title, source: i.source }));
-  } catch (e) { console.warn("뉴스 로드 실패:", e.message); return []; }
-}
+// ── Agent 호출로 추천 서사 생성 ─────────────────────────────
 
-// ── Bedrock 프롬프트 ────────────────────────────────────────
-const SYSTEM_PROMPT = `당신은 한국 수출기업의 국제물류를 자문하는 15년차 해상운임 전략가다.
-화주가 "지금 이 화물을 어떻게 보내야 하나"를 물으면, 시황·자사 이력·실제 선박 스케줄을 종합해
-결단력 있고 구체적인 추천을 한국어로 제시한다.
+async function generateRecommendation(brief) {
+  const briefJson = JSON.stringify(brief, null, 2);
 
-원칙:
-- 근거로 인용하는 모든 수치는 입력 브리프에 있는 값만 사용한다. 없는 숫자(미래 운임, 정확 ETA 등)는 절대 지어내지 않는다.
-- 뻔한 양비론 금지. 데이터가 한쪽을 가리키면 분명하게 그쪽을 추천하고, 왜인지 숫자로 설득한다.
-- "과거 대비 지금 수준이 어떤지", "회사 예산·과거 실거래 대비 어떤지", "왜 이 스케줄인지", "어느 포워더인지"까지 짚는다.
-- 서술은 실무자가 그대로 상신 보고서에 붙일 수 있을 만큼 구체적이되, 과장·공포마케팅은 피한다.
-- 반드시 지정된 JSON 스키마 하나만 출력한다. 코드펜스·설명문 없이 순수 JSON.`;
+  const prompt = `당신은 한국 수출기업의 국제물류를 자문하는 15년차 해상운임 전략가입니다.
+아래 선적 브리프(모든 숫자는 확정값)를 읽고, 설득형 추천을 JSON으로 생성하세요.
 
-function userPrompt(brief, news) {
-  const newsBlock = news.length
-    ? news.map((n) => `- ${n.title} (${n.source})`).join("\n")
-    : "(오늘 수집된 관련 헤드라인 없음)";
-  return `## 판단할 선적 브리프(모든 숫자는 확정값이다)
+GetHighImpactNews 도구로 최근 해운 뉴스를 조회해서 참고하세요.
+
+## 선적 브리프
 \`\`\`json
-${JSON.stringify(brief, null, 2)}
+${briefJson}
 \`\`\`
 
-## 오늘의 해운 시황 헤드라인(정성 참고용, 수치 인용 금지)
-${newsBlock}
+## 작성 원칙
+- 근거로 인용하는 모든 수치는 위 브리프에 있는 값만 사용. 없는 숫자는 절대 지어내지 않음.
+- 뻔한 양비론 금지. 데이터가 한쪽을 가리키면 분명하게 그쪽을 추천하고 숫자로 설득.
+- "과거 대비 지금 수준", "회사 예산·과거 실거래 대비", "왜 이 스케줄인지", "어느 포워더인지"까지 짚기.
+- 서술은 실무자가 상신 보고서에 붙일 수 있을 만큼 구체적이되 과장·공포마케팅은 피함.
 
-## 출력 스키마 — 아래 JSON 하나만, 순수 JSON으로 출력
+## 출력 스키마 — 순수 JSON 하나만 출력(코드펜스 없이)
 {
-  "verdict": "12자 내외의 결단형 헤드라인 (예: '지금 예약하세요, 미룰 장이 아닙니다')",
+  "verdict": "12자 내외의 결단형 헤드라인",
   "stance": "BOOK_NOW | BOOK_SOON | CONSIDER_WAIT | DEADLINE_RISK 중 하나",
   "confidence": "HIGH | MEDIUM | LOW",
   "recommendedSailing": { "vessel": "", "operator": "", "service": "", "etd": "", "eta": "", "priceUSDPerFeu": 0, "why": "이 항차를 고른 한 문장 이유" },
-  "narrative": "3~5문단, 마크다운 기호 없는 순수 한국어 서술. (1) 지금 시장이 과거 대비 어느 수준인지 백분위·yoy로 (2) 회사 예산과 자사 과거 실거래·시장연동 공정가 대비 이 운임이 합리적인지 (3) 왜 이 스케줄이고 왜 지금인지(납기·버퍼·탑승가능 항차 수) (4) 어느 포워더로, 무엇을 협상할지. 문단은 개행 두 번으로 구분.",
-  "keyNumbers": [ { "label": "짧은 라벨", "value": "값(단위 포함)", "note": "한 줄 설명" } ],
-  "actions": [ "오늘 당장 할 구체 행동(누구에게 무엇을)" ],
-  "risks": [ "이 추천의 반대 시나리오/주의점" ],
-  "watchTriggers": [ "이런 조건이 되면 판단을 뒤집어야 한다" ],
+  "narrative": "3~5문단 순수 한국어 서술. (1) 시장 수준 백분위·yoy (2) 예산 대비 합리성 (3) 스케줄 선택 이유 (4) 포워더·협상 제안. 문단은 개행 두 번 구분.",
+  "keyNumbers": [ { "label": "라벨", "value": "값(단위)", "note": "설명" } ],
+  "actions": [ "오늘 할 구체 행동" ],
+  "risks": [ "반대 시나리오/주의점" ],
+  "watchTriggers": [ "판단 뒤집을 조건" ],
   "nextReviewDate": "YYYY-MM-DD"
 }
-keyNumbers는 3~5개, actions/risks/watchTriggers는 각 2~4개. narrative가 이 추천의 핵심이니 가장 공들여 쓴다.`;
+keyNumbers 3~5개, actions/risks/watchTriggers 각 2~4개.`;
+
+  const sessionId = `reco-${brief.shipment?.id || "default"}-${Date.now()}`;
+
+  const command = new InvokeAgentCommand({
+    agentId: AGENT_ID,
+    agentAliasId: AGENT_ALIAS_ID,
+    sessionId,
+    inputText: prompt,
+    enableTrace: false,
+  });
+
+  const result = await agentClient.send(command);
+
+  const chunks = [];
+  for await (const event of result.completion || []) {
+    if (event.chunk?.bytes) {
+      chunks.push(new TextDecoder().decode(event.chunk.bytes));
+    }
+  }
+
+  const raw = chunks.join("").trim();
+  if (!raw) throw new Error("Agent가 빈 추천을 반환했습니다.");
+
+  return parseAndValidate(raw);
 }
 
-async function converseJson(system, user) {
-  const r = await bedrock.send(new ConverseCommand({
-    modelId: MODEL_ID,
-    system: [{ text: system }],
-    messages: [{ role: "user", content: [{ text: user }] }],
-    inferenceConfig: { maxTokens: 2600, temperature: 0.6 },
-  }));
-  return r.output?.message?.content?.[0]?.text ?? "";
-}
-
-function extractJson(text) {
-  let t = text.trim();
+function parseAndValidate(raw) {
+  let t = raw;
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) t = fence[1].trim();
   const s = t.indexOf("{"), e = t.lastIndexOf("}");
   if (s >= 0 && e > s) t = t.slice(s, e + 1);
-  return JSON.parse(t);
-}
 
-const REQUIRED = ["verdict", "stance", "confidence", "recommendedSailing", "narrative", "keyNumbers", "actions"];
-function validate(obj) {
+  const obj = JSON.parse(t);
+  const REQUIRED = ["verdict", "stance", "confidence", "recommendedSailing", "narrative", "keyNumbers", "actions"];
   const missing = REQUIRED.filter((k) => obj[k] == null);
   if (missing.length) throw new Error(`필드 누락: ${missing.join(", ")}`);
   if (!Array.isArray(obj.keyNumbers) || obj.keyNumbers.length === 0) throw new Error("keyNumbers 비어있음");
@@ -176,18 +166,7 @@ function validate(obj) {
   return obj;
 }
 
-async function generateRecommendation(brief, news) {
-  const user = userPrompt(brief, news);
-  let raw = await converseJson(SYSTEM_PROMPT, user);
-  try {
-    return validate(extractJson(raw));
-  } catch (err) {
-    // 1회 자가수정 재시도
-    const repair = `${user}\n\n## 직전 출력이 스키마를 어겼다: ${err.message}\n스키마를 정확히 지켜 순수 JSON 하나만 다시 출력하라.`;
-    raw = await converseJson(SYSTEM_PROMPT, repair);
-    return validate(extractJson(raw));
-  }
-}
+// ── 저장 & 공용 함수 ────────────────────────────────────────
 
 export async function storeRecommendation(brief, reco) {
   if (!RECO_TABLE) return;
@@ -210,10 +189,14 @@ export async function storeRecommendation(brief, reco) {
   } catch (e) { console.warn("추천 저장 실패:", e.message); }
 }
 
-// 브리프 계산 + Bedrock 추천 생성(+저장). handler와 스케줄 모니터가 공유한다.
+// 브리프 계산 + Agent 추천 생성(+저장). handler와 스케줄 모니터가 공유.
 export async function computeRecommendation({ store = true } = {}) {
+  if (!AGENT_ID || !AGENT_ALIAS_ID) {
+    throw new Error("BEDROCK_AGENT_ID / BEDROCK_AGENT_ALIAS_ID 환경변수 미설정");
+  }
+
   const asOf = todayKst();
-  const [company, kcci, macro, news] = await Promise.all([loadCompany(), loadKcci(), loadMacro(), loadNewsHeadlines()]);
+  const [company, kcci, macro] = await Promise.all([loadCompany(), loadKcci(), loadMacro()]);
   if (!company?.current) throw new Error("현재 선적 데이터가 없습니다(엑셀 2_Current_Shipment 또는 현재 선적 폼 입력 필요).");
 
   const brief = buildBrief({
@@ -221,9 +204,9 @@ export async function computeRecommendation({ store = true } = {}) {
     kcci: { series: kcci.series, compositeNow: kcci.compositeNow },
     fx: { USD: macro.USD }, baseRate: macro.baseRate, asOf,
   });
-  brief.dataSources = { kcci: kcci.source, company: COMPANY_BUCKET ? "s3" : "bundled", currentShipmentSource: company.currentSource, news: news.length };
+  brief.dataSources = { kcci: kcci.source, company: COMPANY_BUCKET ? "s3" : "bundled", currentShipmentSource: company.currentSource };
 
-  const recommendation = await generateRecommendation(brief, news);
+  const recommendation = await generateRecommendation(brief);
   if (store) await storeRecommendation(brief, recommendation);
   return { asOf, brief, recommendation };
 }
