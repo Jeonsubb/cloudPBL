@@ -4,6 +4,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { fetchSeries } from "./ecos.mjs";
+import { fetchFredSeries } from "./fred.mjs";
 import { SERIES } from "./series.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -27,25 +28,36 @@ export async function handler(event = {}) {
   const apiKey = process.env.ECOS_API_KEY || "sample";
   const days = Number(event.days ?? process.env.DEFAULT_DAYS ?? 14);
   const toDate = new Date();
-  const fromDate = new Date(toDate.getTime() - days * 86_400_000);
   const fetchedAt = new Date().toISOString();
 
   const summary = [];
   for (const series of SERIES) {
-    const points = await fetchSeries(apiKey, series, fromDate, toDate);
-    await batchWrite(
-      tableName,
-      points.map((p) => ({
-        series: `${series.prefix}#${series.id}`,
-        date: p.date,
-        value: p.value,
-        unit: series.unit,
-        label: series.label,
-        source: `${series.statCode}/${series.itemCode}`,
-        fetchedAt,
-      })),
-    );
-    summary.push({ series: series.id, written: points.length, latest: points.at(-1) ?? null });
+    try {
+      // 월간 등 저빈도 시리즈는 일별 수집주기(예: 14일)로는 새 값이 나온 달을 놓칠 수 있어
+      // 시리즈별 최소 창(minWindowDays)을 보장한다.
+      const seriesDays = Math.max(days, series.minWindowDays ?? 0);
+      const fromDate = new Date(toDate.getTime() - seriesDays * 86_400_000);
+      const points = series.source === "fred"
+        ? await fetchFredSeries(series.fredSeriesId, fromDate, toDate)
+        : await fetchSeries(apiKey, series, fromDate, toDate);
+      await batchWrite(
+        tableName,
+        points.map((p) => ({
+          series: `${series.prefix}#${series.id}`,
+          date: p.date,
+          value: p.value,
+          unit: series.unit,
+          label: series.label,
+          source: series.source === "fred" ? `FRED ${series.fredSeriesId}` : `${series.statCode}/${series.itemCode}`,
+          fetchedAt,
+        })),
+      );
+      summary.push({ series: series.id, written: points.length, latest: points.at(-1) ?? null });
+    } catch (e) {
+      // 한 시리즈(예: ECOS rate limit)가 실패해도 나머지 시리즈는 계속 수집한다.
+      console.error(`시리즈 ${series.id} 수집 실패:`, e.message);
+      summary.push({ series: series.id, error: e.message });
+    }
   }
   console.log(JSON.stringify({ days, apiKey: apiKey === "sample" ? "sample" : "real", summary }));
   return { ok: true, days, summary };

@@ -129,8 +129,11 @@ svg.chart { width: 100%; height: auto; display: block; margin-top: 6px; }
 .sched-price-row .pval { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
 .sched-price-row .pval .pmark { font-size: 12px; color: var(--faint); font-weight: 600; }
 .sched-disclaimer { font-size: 11px; color: var(--faint); margin-top: 4px; }
-.sched-group-title { font-size: 12.5px; font-weight: 800; color: var(--ink); margin: 18px 2px 10px; }
+.sched-group-title { font-size: 12.5px; font-weight: 800; color: var(--ink); margin: 18px 2px 10px; display: flex; align-items: center; gap: 10px; }
 .sched-group-title:first-child { margin-top: 0; }
+.sched-viewall { margin-left: auto; border: 1px solid var(--border); background: #fff; color: var(--muted); font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 8px; cursor: pointer; }
+.sched-viewall:hover { border-color: var(--faint); color: var(--ink); }
+.sched-viewall:disabled { opacity: .6; cursor: default; }
 
 /* ── 회사 데이터 연결 ─────────────────────────────────── */
 .connect { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px 20px; margin-bottom: 18px; }
@@ -141,7 +144,7 @@ svg.chart { width: 100%; height: auto; display: block; margin-top: 6px; }
 .connect-icon.empty { background: rgba(148,163,184,.15); }
 .connect-text .ct-label { font-size: 12.5px; font-weight: 700; color: var(--ink); }
 .connect-text .ct-sub { font-size: 11px; color: var(--faint); margin-top: 1px; }
-.connect-btn { border: 1px solid var(--border); background: #fff; color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 7px 14px; border-radius: 9px; cursor: pointer; }
+.connect-btn { border: 1px solid var(--border); background: #fff; color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 7px 14px; border-radius: 9px; cursor: pointer; display: inline-block; text-decoration: none; }
 .connect-btn:hover { border-color: var(--line); color: var(--line); }
 .connect-btn.primary { background: var(--line); border-color: var(--line); color: #fff; }
 .connect-btn.primary:hover { opacity: .9; }
@@ -239,3 +242,97 @@ svg.chart { width: 100%; height: auto; display: block; margin-top: 6px; }
 .chat-input-row input:focus { border-color: var(--line); }
 .chat-input-row button { border: none; background: var(--line); color: #fff; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 15px; flex-shrink: 0; }
 .chat-input-row button:disabled { opacity: .5; cursor: default; }
+
+/* ── 헤더 우측 사용자 칩 ─────────────────────────────── */
+.header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.user-chip { display: flex; align-items: center; gap: 8px; }
+.user-chip .co { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.user-chip button { border: 1px solid var(--border); background: #fff; color: var(--muted); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 8px; cursor: pointer; }
+.user-chip button:hover { border-color: var(--line); color: var(--line); }
+
+/* ── 로그인/가입 페이지 ──────────────────────────────── */
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.auth-card { width: 100%; max-width: 400px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 30px 28px; box-shadow: 0 10px 40px rgba(15,23,42,.06); }
+.auth-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 22px; }
+.auth-brand .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--line); box-shadow: 0 0 0 4px rgba(37,99,235,.15); }
+.auth-brand h1 { font-size: 21px; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+.auth-brand .tag { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.auth-tabs { display: flex; gap: 6px; background: var(--bg); padding: 4px; border-radius: 11px; margin-bottom: 20px; }
+.auth-tab { flex: 1; border: none; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; padding: 9px; border-radius: 8px; cursor: pointer; }
+.auth-tab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(15,23,42,.08); }
+.auth-form { display: flex; flex-direction: column; gap: 13px; }
+.auth-form label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.auth-form input { border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; font-size: 14px; color: var(--ink); font-family: inherit; }
+.auth-form input:focus { border-color: var(--line); outline: none; }
+.auth-btn { border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 4px; }
+.auth-btn.primary { background: var(--line); color: #fff; }
+.auth-btn.primary:hover { opacity: .92; }
+.auth-note { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.auth-msg { font-size: 12.5px; min-height: 16px; }
+.auth-msg.err { color: #e11d48; }
+.auth-msg.ok { color: #059669; }
+.auth-foot { margin-top: 18px; font-size: 11.5px; color: var(--faint); text-align: center; line-height: 1.5; }
+
+/* ── AI 포트폴리오 추천 ──────────────────────────────── */
+.reco-empty { text-align: center; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.reco-empty .ttl { font-size: 15px; font-weight: 800; color: var(--ink); }
+.reco-empty .dsc { font-size: 12.5px; color: var(--muted); max-width: 420px; line-height: 1.6; }
+.reco-empty .auth-btn { margin-top: 8px; }
+.pf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 14px; }
+.pf-kpi { background: rgba(255,255,255,.14); border-radius: 10px; padding: 9px 11px; }
+.pf-kpi .l { font-size: 10.5px; opacity: .85; }
+.pf-kpi .v { font-size: 16px; font-weight: 800; margin-top: 2px; letter-spacing: -0.02em; }
+.pf-ships { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.pf-ships.compact { grid-template-columns: 1fr; margin-top: 12px; }
+.pf-ship { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--faint); border-radius: 12px; padding: 13px 15px; }
+.pf-ship.BOOK_NOW { border-left-color: #e11d48; }
+.pf-ship.DEADLINE_RISK { border-left-color: #b91c1c; background: rgba(185,28,28,.03); }
+.pf-ship.BOOK_SOON { border-left-color: #f59e0b; }
+.pf-ship.CONSIDER_WAIT { border-left-color: #2563eb; }
+.pf-ship-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pf-pri { font-size: 12px; font-weight: 800; color: var(--faint); }
+.pf-stance { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.pf-stance.BOOK_NOW { color: #e11d48; background: rgba(225,29,72,.1); }
+.pf-stance.DEADLINE_RISK { color: #b91c1c; background: rgba(185,28,28,.12); }
+.pf-stance.BOOK_SOON { color: #b45309; background: rgba(245,158,11,.14); }
+.pf-stance.CONSIDER_WAIT { color: #2563eb; background: rgba(37,99,235,.1); }
+.pf-headline { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.pf-id { margin-left: auto; font-size: 10.5px; color: var(--faint); }
+.pf-meta { font-size: 11.5px; color: var(--muted); margin-top: 7px; }
+.pf-sail { font-size: 12.5px; color: var(--ink); margin-top: 8px; font-weight: 600; }
+.pf-why { font-size: 12px; color: #475569; margin-top: 6px; line-height: 1.55; }
+.pf-action { font-size: 12px; color: #065f46; margin-top: 7px; font-weight: 600; }
+
+/* ── 좌측 사이드바 레이아웃 ──────────────────────────── */
+.app-sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 236px; background: linear-gradient(180deg,#0f172a 0%,#131c31 100%); color: #cbd5e1; display: flex; flex-direction: column; padding: 20px 14px 16px; z-index: 50; }
+.sb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; padding: 2px 8px 18px; }
+.sb-brand .dot { width: 10px; height: 10px; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,.22); flex-shrink: 0; }
+.sb-brand h1 { font-size: 17px; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+.sb-brand .tag { font-size: 10.5px; color: #94a3b8; margin-top: 2px; }
+.sb-nav { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.sb-nav a { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 9px; color: #cbd5e1; text-decoration: none; font-size: 13.5px; font-weight: 600; transition: background .12s; }
+.sb-nav a .ic { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+.sb-nav a:hover { background: rgba(255,255,255,.06); color: #fff; }
+.sb-nav a.active { background: #2563eb; color: #fff; box-shadow: 0 2px 10px rgba(37,99,235,.35); }
+.sb-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08); }
+.sb-user .co { font-size: 12.5px; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-user .em { font-size: 10.5px; color: #94a3b8; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-foot button { margin-top: 10px; width: 100%; border: 1px solid rgba(255,255,255,.14); background: transparent; color: #cbd5e1; font-size: 12px; font-weight: 600; padding: 8px; border-radius: 8px; cursor: pointer; }
+.sb-foot button:hover { background: rgba(255,255,255,.06); color: #fff; }
+
+body.has-sidebar .wrap { margin-left: 236px; max-width: 1220px; padding: 20px 34px 60px; }
+.topbar { display: flex; justify-content: flex-end; margin-bottom: 6px; min-height: 16px; }
+.tb-updated { font-size: 11.5px; color: var(--faint); text-align: right; line-height: 1.5; }
+.tb-updated strong { color: var(--muted); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .app-sidebar { position: static; width: auto; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+  .sb-brand { padding: 0 12px 0 4px; }
+  .sb-brand .tag { display: none; }
+  .sb-nav { flex-direction: row; flex-wrap: wrap; margin-top: 0; }
+  .sb-nav a { padding: 7px 11px; font-size: 12.5px; }
+  .sb-foot { margin: 0 0 0 auto; padding-top: 0; border-top: none; display: flex; align-items: center; gap: 10px; }
+  .sb-foot button { width: auto; margin-top: 0; padding: 7px 12px; }
+  .sb-user { text-align: right; }
+  body.has-sidebar .wrap { margin-left: 0; max-width: none; padding: 16px; }
+}

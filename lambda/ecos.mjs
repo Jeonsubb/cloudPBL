@@ -9,12 +9,16 @@ const SAMPLE_MAX_ROWS = 10;
 const REAL_WINDOW_DAYS = 900;
 const REAL_MAX_ROWS = 1000;
 
-function fmt(date) {
-  return date.toISOString().slice(0, 10).replaceAll("-", "");
+// cycle이 "M"(월간)이면 ECOS가 요청 날짜를 YYYYMM 6자리로 요구한다(YYYYMMDD 주면 ERROR-101).
+function fmt(date, cycle) {
+  const yyyymmdd = date.toISOString().slice(0, 10).replaceAll("-", "");
+  return cycle === "M" ? yyyymmdd.slice(0, 6) : yyyymmdd;
 }
 
-function toIsoDate(yyyymmdd) {
-  return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
+// 응답 TIME은 일간이면 YYYYMMDD(8자리), 월간이면 YYYYMM(6자리) — 후자는 해당월 1일로 정규화.
+function toIsoDate(time) {
+  if (time.length === 6) return `${time.slice(0, 4)}-${time.slice(4, 6)}-01`;
+  return `${time.slice(0, 4)}-${time.slice(4, 6)}-${time.slice(6, 8)}`;
 }
 
 async function fetchWindow(apiKey, series, from, to, maxRows) {
@@ -51,7 +55,7 @@ export async function fetchSeries(apiKey, series, fromDate, toDate) {
     const windowEnd = new Date(
       Math.min(cursor.getTime() + (windowDays - 1) * 86_400_000, toDate.getTime()),
     );
-    points.push(...(await fetchWindow(apiKey, series, fmt(cursor), fmt(windowEnd), maxRows)));
+    points.push(...(await fetchWindow(apiKey, series, fmt(cursor, series.cycle), fmt(windowEnd, series.cycle), maxRows)));
     cursor = new Date(windowEnd.getTime() + 86_400_000);
   }
   const byDate = new Map(points.filter((p) => Number.isFinite(p.value)).map((p) => [p.date, p]));

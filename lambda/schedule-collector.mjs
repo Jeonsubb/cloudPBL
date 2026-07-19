@@ -48,6 +48,25 @@ export const ROUTE_ANCHOR_USD = {
   KUWI: 7100, KUEI: 9150,
 };
 
+// 선사 티어별 가격 배수 — 실제 업계는 같은 항로·같은 주라도 선사 간 10~20% 정도 차이가 나는 게 정상
+// (지역/역내 특화 선사는 비용경쟁력으로 저가 포지셔닝, 글로벌 대형선사는 기준가 근접~약간 프리미엄).
+// 조사 근거: 같은 항로 선사간 스프레드 10~20%가 일반적이라는 업계 자료(2026-07 확인).
+const CARRIER_TIER_MULTIPLIER = {
+  // 한국계 역내 특화 선사 — 비용경쟁력 포지셔닝(저가)
+  KMTC: 0.87, SINOKOR: 0.85, "HEUNG-A": 0.86, NAMSUNG: 0.88, "SM LINE": 0.87,
+  PAN: 0.85, INTERASIA: 0.86, KOTA: 0.88,
+  // 초대형 글로벌 선사(규모의 경제로 공격적 가격) — 약간 저가~기준가
+  MSC: 0.94, CMA: 0.96, "CMA CGM": 0.96,
+  // 한국/일본 대형 선사 — 기준가(anchorUsd 자체가 이 수준 기반)
+  HMM: 1.0, ONE: 1.0,
+  // 그 외 글로벌 대형 선사 — 기준가~약간 프리미엄(서비스 안정성)
+  MAERSK: 1.08, ZIM: 1.05, COSCO: 1.0, EVERGREEN: 1.02, "YANG MING": 1.0, "HAPAG-LLOYD": 1.06,
+};
+function carrierMultiplier(carrierName) {
+  const key = String(carrierName ?? "").trim().toUpperCase();
+  return CARRIER_TIER_MULTIPLIER[key] ?? 1.0;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function batchWrite(tableName, items) {
@@ -99,14 +118,17 @@ async function fetchAllSailings(podId, etdIso) {
 
 function toScheduleItem({ routeCode, podName, sailing: s, carrierById, anchorUsd, routeSeries, collectedAt }) {
   const etdIso = s.fullETD.slice(0, 10);
+  const carrier = carrierById.get(s.linerId) ?? `Carrier#${s.linerId}`;
+  // 항로 기준가 × 선사 티어 배수(±13~15%p 수준) — 같은 주 안에서도 선사별로 값이 갈리게 한다.
+  const tieredAnchor = anchorUsd * carrierMultiplier(carrier);
   const { priceUSD, priceBasis } = syntheticPrice({
-    anchorUsd, routeSeries, etdIso, seed: String(s.id),
+    anchorUsd: tieredAnchor, routeSeries, etdIso, seed: String(s.id), jitterPct: 0.1,
   });
   return {
     routeCode,
     sortKey: `${s.fullETD}#${s.id}`,
     shipdaId: s.id,
-    carrier: carrierById.get(s.linerId) ?? `Carrier#${s.linerId}`,
+    carrier,
     vessel: s.shipName,
     voyage: s.voyagerNo,
     pol: s.pol, pod: s.pod, podName,

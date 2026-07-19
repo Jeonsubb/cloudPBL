@@ -10,11 +10,13 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { parseCompanyFromS3 } from "./company-input.mjs";
+import { companyIdFromEvent, companyExcelKey, currentShipmentKey } from "./tenant.mjs";
 
 const s3 = new S3Client({});
 const BUCKET = process.env.COMPANY_BUCKET;
-const EXCEL_KEY = process.env.COMPANY_KEY ?? "current/company-input.xlsx";
-export const CURRENT_SHIPMENT_KEY = "current/current-shipment.json";
+
+// 하위호환: recommend.mjs 등이 이 이름으로 import — 이제 companyId를 받는 함수다.
+export const CURRENT_SHIPMENT_KEY = currentShipmentKey;
 
 const json = (code, body) => ({ statusCode: code, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
@@ -25,19 +27,23 @@ async function headSafe(key) {
   } catch { return null; }
 }
 
-async function getExcelUploadUrl() {
+async function getExcelUploadUrl(companyId) {
   if (!BUCKET) return json(500, { error: "COMPANY_BUCKET 미설정" });
+  const key = companyExcelKey(companyId);
   const cmd = new PutObjectCommand({
-    Bucket: BUCKET, Key: EXCEL_KEY,
+    Bucket: BUCKET, Key: key,
     ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   const url = await getSignedUrl(s3, cmd, { expiresIn: 300 });
-  return json(200, { url, key: EXCEL_KEY, expiresIn: 300 });
+  return json(200, { url, key, expiresIn: 300 });
 }
 
-async function getCompanyStatus() {
+async function getCompanyStatus(companyId) {
   if (!BUCKET) return json(200, { excel: null, currentShipment: null });
-  const [excel, current] = await Promise.all([headSafe(EXCEL_KEY), headSafe(CURRENT_SHIPMENT_KEY)]);
+  const [excel, current] = await Promise.all([
+    headSafe(companyExcelKey(companyId)),
+    headSafe(currentShipmentKey(companyId)),
+  ]);
   return json(200, { excel, currentShipment: current });
 }
 
@@ -65,7 +71,7 @@ function normalizeShipment(body) {
   return out;
 }
 
-async function putCurrentShipment(event) {
+async function putCurrentShipment(event, companyId) {
   if (!BUCKET) return json(500, { error: "COMPANY_BUCKET 미설정" });
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return json(400, { error: "잘못된 JSON 본문" }); }
@@ -79,7 +85,7 @@ async function putCurrentShipment(event) {
   record.savedAt = new Date().toISOString();
   try {
     await s3.send(new PutObjectCommand({
-      Bucket: BUCKET, Key: CURRENT_SHIPMENT_KEY,
+      Bucket: BUCKET, Key: currentShipmentKey(companyId),
       Body: JSON.stringify(record, null, 2), ContentType: "application/json",
     }));
   } catch (e) {
@@ -89,17 +95,17 @@ async function putCurrentShipment(event) {
   return json(200, { saved: true, current: record });
 }
 
-async function getCurrentShipment() {
+async function getCurrentShipment(companyId) {
   if (!BUCKET) return json(200, { current: null, source: null });
   // 1순위: UI 폼으로 저장된 값
   try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: CURRENT_SHIPMENT_KEY }));
+    const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: currentShipmentKey(companyId) }));
     const text = await res.Body.transformToString();
     return json(200, { current: JSON.parse(text), source: "UI_FORM" });
   } catch { /* 없으면 엑셀에서 시도 */ }
   // 2순위: 엑셀의 2_Current_Shipment 시트
   try {
-    const { current } = await parseCompanyFromS3(BUCKET, EXCEL_KEY);
+    const { current } = await parseCompanyFromS3(BUCKET, companyExcelKey(companyId));
     return json(200, { current: current ? { ...current, source: "EXCEL" } : null, source: current ? "EXCEL" : null });
   } catch {
     return json(200, { current: null, source: null });
@@ -109,11 +115,12 @@ async function getCurrentShipment() {
 export async function handler(event) {
   const path = event.rawPath || event.requestContext?.http?.path || "";
   const method = event.requestContext?.http?.method || "GET";
+  const companyId = companyIdFromEvent(event);
   try {
-    if (path === "/company/upload-url") return await getExcelUploadUrl();
-    if (path === "/company/status") return await getCompanyStatus();
-    if (path === "/shipments/current" && method === "POST") return await putCurrentShipment(event);
-    if (path === "/shipments/current" && method === "GET") return await getCurrentShipment();
+    if (path === "/company/upload-url") return await getExcelUploadUrl(companyId);
+    if (path === "/company/status") return await getCompanyStatus(companyId);
+    if (path === "/shipments/current" && method === "POST") return await putCurrentShipment(event, companyId);
+    if (path === "/shipments/current" && method === "GET") return await getCurrentShipment(companyId);
     return json(404, { error: "not found" });
   } catch (e) {
     console.error("company-upload 처리 실패:", e);

@@ -60,12 +60,15 @@ export function parseCompanyWorkbook(buffer) {
   const policyRows = sheetRows(wb, "1_Company_Policy", ["companyName"]).map(normalizeDates);
   const currentRows = sheetRows(wb, "2_Current_Shipment", ["shipmentId"]).map(normalizeDates);
   const historyRows = sheetRows(wb, "3_Historical_Shipments", ["historicalShipmentId"]).map(normalizeDates);
+  // 예정선적(여러 건) — 포트폴리오 추천의 입력. 현재선적과 동일 스키마, 여러 행.
+  const plannedRows = sheetRows(wb, "4_Planned_Shipments", ["shipmentId"]).map(normalizeDates);
 
   const policy = policyRows[0] ?? null;
   const current = currentRows[0] ?? null;
   const history = historyRows.filter((r) => r.historicalShipmentId);
+  const planned = plannedRows.filter((r) => r.shipmentId);
 
-  return { policy, current, history };
+  return { policy, current, history, planned };
 }
 
 // 로컬 파일에서 파싱(개발/CLI용)

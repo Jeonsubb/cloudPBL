@@ -4,6 +4,71 @@ const API_URL = window.location.search.includes("api=")
   ? new URLSearchParams(window.location.search).get("api")
   : "https://t7ggohc5tb.execute-api.ap-northeast-2.amazonaws.com";
 
+/* ---------- 인증(Cognito) — 회사별 로그인 ----------
+   정적 프론트라 SDK 없이 Cognito IDP API를 fetch로 직접 호출한다.
+   IdToken(회사 sub·name 포함)을 localStorage에 보관하고, 보호 API 호출에 Authorization으로 붙인다. */
+const COGNITO = {
+  region: "ap-northeast-2",
+  userPoolId: "ap-northeast-2_rDBGCCBDr",
+  clientId: "7j7pmgejoq07qdppeb6htt8n6p",
+};
+const COGNITO_IDP = `https://cognito-idp.${COGNITO.region}.amazonaws.com/`;
+
+function getSession() { try { return JSON.parse(localStorage.getItem("pp_session") || "null"); } catch { return null; } }
+function setSession(s) { localStorage.setItem("pp_session", JSON.stringify(s)); }
+function clearSession() { localStorage.removeItem("pp_session"); }
+function idToken() {
+  const s = getSession();
+  if (!s?.idToken) return null;
+  if (s.exp && Date.now() / 1000 > s.exp) { clearSession(); return null; } // 만료 토큰 폐기
+  return s.idToken;
+}
+function companyName() { return getSession()?.companyName || "회사"; }
+function authHeaders() { const t = idToken(); return t ? { Authorization: `Bearer ${t}` } : {}; }
+function requireAuth() { if (!idToken()) { location.href = "login.html"; return false; } return true; }
+function logout() { clearSession(); location.href = "login.html"; }
+
+// 보호 API 호출용 — Authorization 자동 첨부 + 401이면 세션 만료로 보고 로그인으로.
+async function authedFetch(url, opts = {}) {
+  const res = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...authHeaders() } });
+  if (res.status === 401) { clearSession(); location.href = "login.html"; throw new Error("세션이 만료되었습니다. 다시 로그인하세요."); }
+  return res;
+}
+
+function decodeJwt(token) {
+  try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch { return {}; }
+}
+async function cognitoCall(target, body) {
+  const res = await fetch(COGNITO_IDP, {
+    method: "POST",
+    headers: { "content-type": "application/x-amz-json-1.1", "x-amz-target": `AWSCognitoIdentityProviderService.${target}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const t = (data.__type || "").split("#").pop(); throw new Error(data.message || t || "요청 실패"); }
+  return data;
+}
+async function ppSignUp(email, password, company) {
+  return cognitoCall("SignUp", {
+    ClientId: COGNITO.clientId, Username: email, Password: password,
+    UserAttributes: [{ Name: "name", Value: company }, { Name: "email", Value: email }],
+  });
+}
+async function ppConfirmSignUp(email, code) {
+  return cognitoCall("ConfirmSignUp", { ClientId: COGNITO.clientId, Username: email, ConfirmationCode: code });
+}
+async function ppLogin(email, password) {
+  const data = await cognitoCall("InitiateAuth", {
+    ClientId: COGNITO.clientId, AuthFlow: "USER_PASSWORD_AUTH",
+    AuthParameters: { USERNAME: email, PASSWORD: password },
+  });
+  const r = data.AuthenticationResult;
+  if (!r?.IdToken) throw new Error("로그인 응답에 토큰이 없습니다.");
+  const claims = decodeJwt(r.IdToken);
+  setSession({ idToken: r.IdToken, accessToken: r.AccessToken, companyName: claims.name || email, email, exp: claims.exp });
+  return claims;
+}
+
 /* ---------- 상단 네비게이션 ---------- */
 const NAV_PAGES = [
   { href: "index.html", key: "home", icon: "🏠", label: "홈" },
@@ -13,27 +78,41 @@ const NAV_PAGES = [
   { href: "shipments.html", key: "shipments", icon: "📦", label: "선적 의사결정" },
   { href: "news.html", key: "news", icon: "📰", label: "뉴스" },
 ];
+// 좌측 고정 사이드바(브랜드 + 네비 + 회사칩/로그아웃)를 body에 1회 주입.
 function renderNav(activeKey) {
-  const mount = document.getElementById("navMount");
-  if (!mount) return;
-  mount.innerHTML = `<nav class="pnav">${NAV_PAGES.map((p) =>
-    `<a href="${p.href}" class="${p.key === activeKey ? "active" : ""}">${p.icon} ${p.label}</a>`
-  ).join("")}</nav>`;
+  if (document.getElementById("ppSidebar")) {
+    // 이미 있으면 active만 갱신
+    document.querySelectorAll("#ppSidebar .sb-nav a").forEach((a) => a.classList.toggle("active", a.dataset.key === activeKey));
+    return;
+  }
+  const aside = document.createElement("aside");
+  aside.id = "ppSidebar";
+  aside.className = "app-sidebar";
+  aside.innerHTML = `
+    <a class="sb-brand" href="index.html">
+      <span class="dot"></span>
+      <div><h1>PortPulse</h1><div class="tag">해운 운임 · AI 선적추천</div></div>
+    </a>
+    <nav class="sb-nav">
+      ${NAV_PAGES.map((p) => `<a href="${p.href}" data-key="${p.key}" class="${p.key === activeKey ? "active" : ""}"><span class="ic">${p.icon}</span><span>${p.label}</span></a>`).join("")}
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-user"><div class="co">${esc(companyName())}</div><div class="em">${esc(getSession()?.email || "")}</div></div>
+      <button type="button" id="sbLogout">로그아웃</button>
+    </div>`;
+  document.body.prepend(aside);
+  document.body.classList.add("has-sidebar");
+  const lo = document.getElementById("sbLogout");
+  if (lo) lo.addEventListener("click", logout);
 }
+
+// 모든 페이지가 가장 먼저 부른다 — 로그인 게이트 + 상단 슬림바(갱신시각 표시).
+// login.html은 이 함수를 부르지 않으므로 리다이렉트 루프가 없다.
 function renderBrandHeader(updatedId = "updated") {
+  if (!requireAuth()) return;
   const mount = document.getElementById("headerMount");
   if (mount) {
-    mount.innerHTML = `
-      <header class="top">
-        <a class="brand-link" href="index.html">
-          <span class="dot"></span>
-          <div>
-            <h1>PortPulse</h1>
-            <div class="tag">수출입 기업을 위한 해운 운임·환율·시황 대시보드</div>
-          </div>
-        </a>
-        <div class="updated" id="${updatedId}">불러오는 중…</div>
-      </header>`;
+    mount.innerHTML = `<div class="topbar"><div class="tb-updated" id="${updatedId}">불러오는 중…</div></div>`;
   }
 }
 
@@ -59,6 +138,8 @@ const CARD_CONFIG = {
   FX_EUR_KRW:    { defaultRange: "1y",  decimals: 2 },
   FX_CNY_KRW:    { defaultRange: "1y",  decimals: 2 },
   BOK_BASE_RATE: { defaultRange: "max", decimals: 2, ranges: ["1y", "3y", "max"], collapseFlat: true, stepped: true },
+  OIL_WTI:       { defaultRange: "1y",  decimals: 2 },
+  OIL_BRENT:     { defaultRange: "1y",  decimals: 2 },
 };
 
 const CHART_W = 460, CHART_H = 168, CHART_PAD = { top: 12, right: 14, bottom: 22, left: 52 };
@@ -362,7 +443,7 @@ async function sendChatMessage() {
   const pending = chatAppend("bot", "생각 중…");
   pending.classList.add("pending");
   try {
-    const data = await (await fetch(`${API_URL}/chat`, {
+    const data = await (await authedFetch(`${API_URL}/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message, sessionId: chatSessionId }),
@@ -402,7 +483,7 @@ async function refreshConnectStatus() {
   const curSub = document.getElementById("curSub");
   if (!excelIcon) return null;
   try {
-    const status = await (await fetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json();
+    const status = await (await authedFetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json();
     if (status.excel) {
       excelIcon.classList.replace("empty", "ok"); excelIcon.textContent = "✅";
       excelLabel.textContent = `엑셀 업로드됨 · ${new Date(status.excel.lastModified).toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" })}`;
@@ -434,7 +515,7 @@ async function uploadExcelFile(file, onDone) {
   const msg = document.getElementById("connectStatusMsg");
   msg.className = "connect-status"; msg.textContent = "업로드 준비 중…";
   try {
-    const { url } = await (await fetch(`${API_URL}/company/upload-url`)).json();
+    const { url } = await (await authedFetch(`${API_URL}/company/upload-url`)).json();
     if (!url) throw new Error("업로드 URL 발급 실패");
     msg.textContent = "업로드 중…";
     const put = await fetch(url, {
@@ -456,7 +537,7 @@ function toggleCurForm(open) {
 async function prefillCurForm() {
   const form = document.getElementById("curForm");
   try {
-    const { current } = await (await fetch(`${API_URL}/shipments/current`)).json();
+    const { current } = await (await authedFetch(`${API_URL}/shipments/current`)).json();
     if (!current) return;
     for (const [k, v] of Object.entries(current)) {
       const el = form.elements.namedItem(k);
@@ -472,7 +553,7 @@ async function submitCurForm(ev, onDone) {
   const body = Object.fromEntries(fd.entries());
   msg.className = "cform-msg"; msg.textContent = "저장 중…";
   try {
-    const res = await fetch(`${API_URL}/shipments/current`, {
+    const res = await authedFetch(`${API_URL}/shipments/current`, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
     });
     const data = await res.json();
@@ -502,91 +583,151 @@ function initConnectPanel(onDataChanged) {
   refreshConnectStatus();
 }
 
-/* ---------- AI 선적 추천 ----------
-   라이브 API(/recommendations)가 있으면 그걸, 없으면 recommendation-demo.json 폴백. 동일 스키마.
-   compact=true면 히어로(요약)만 렌더하고 "전체 분석 보기" 링크를 붙인다(홈 요약용). */
+/* ---------- AI 선적 추천 (포트폴리오) ----------
+   GET /recommendations → 저장된 최신 포트폴리오(즉시). POST /recommendations/refresh → 백그라운드 재계산 후 폴링.
+   compact=true면 홈 요약(종합 판정 + 최우선 1~2건 + 전체보기 링크). */
 const STANCE_META = {
   BOOK_NOW: { label: "지금 예약", icon: "🚢" },
   BOOK_SOON: { label: "곧 예약", icon: "⏱️" },
   CONSIDER_WAIT: { label: "관망 검토", icon: "⏳" },
   DEADLINE_RISK: { label: "납기 위험", icon: "⚠️" },
+  INSUFFICIENT: { label: "데이터 부족", icon: "❓" },
 };
-function renderRecommendation(mountId, data, compact) {
+function stanceMeta(st) { return STANCE_META[st] ?? STANCE_META.BOOK_SOON; }
+
+// Bedrock 건별(stance/headline/why/action) + 결정론적 집계(납기/컨테이너/실현총액/예산대비)를 id로 병합.
+function mergeShipments(reco, portfolio) {
+  const byId = Object.fromEntries((portfolio.shipments || []).map((s) => [s.id, s]));
+  return (reco.shipments || []).map((rs) => ({ ...(byId[rs.id] || {}), ...rs }));
+}
+
+function shipCardHtml(s) {
+  const sm = stanceMeta(s.stance);
+  const rs = s.recommendedSailing || {};
+  const priceTxt = rs.priceUSDPerFeu ? `$${Number(rs.priceUSDPerFeu).toLocaleString("en-US")}/FEU` : "—";
+  const nm = rs.vessel && rs.operator && !rs.vessel.toUpperCase().startsWith(rs.operator.toUpperCase())
+    ? `${rs.operator} ${rs.vessel}` : (rs.vessel || "");
+  const sailTxt = rs.vessel
+    ? `${esc(nm)} · ETD ${mdShort(rs.etd)} → ETA ${mdShort(rs.eta)} · ${priceTxt}`
+    : `납기 충족 항차 없음`;
+  const meta = [];
+  if (s.containers) meta.push(`${esc(s.routeLabel || s.lane || "")} · ${s.containers}컨`);
+  if (s.requiredDeliveryDate) meta.push(`납기 ${esc(s.requiredDeliveryDate)}`);
+  if (s.feasibleCount != null) meta.push(`납기충족 ${s.feasibleCount}편`);
+  if (s.vsBudgetPct != null) meta.push(`예산대비 ${fmtPct(s.vsBudgetPct)}`);
+  return `
+    <div class="pf-ship ${s.stance}">
+      <div class="pf-ship-head">
+        <span class="pf-pri">#${s.priority ?? "-"}</span>
+        <span class="pf-stance ${s.stance}">${sm.icon} ${sm.label}</span>
+        <span class="pf-headline">${esc(s.headline || "")}</span>
+        <span class="pf-id">${esc(s.id || "")}</span>
+      </div>
+      <div class="pf-meta">${meta.join(" · ")}</div>
+      <div class="pf-sail">🚢 ${sailTxt}</div>
+      ${s.why ? `<div class="pf-why">${esc(s.why)}</div>` : ""}
+      ${s.action ? `<div class="pf-action">✅ ${esc(s.action)}</div>` : ""}
+    </div>`;
+}
+
+function renderPortfolio(mountId, data, compact) {
   const mount = document.getElementById(mountId);
   if (!mount) return;
-  const r = data.recommendation, b = data.brief;
-  const sm = STANCE_META[r.stance] ?? STANCE_META.BOOK_SOON;
-  const s = r.recommendedSailing ?? {};
-  const src = b.dataSources || {};
-  const sailName = esc((s.vessel || "").startsWith(s.operator || " ") ? s.vessel : `${s.operator || ""} ${s.vessel || ""}`.trim());
+  const r = data.recommendation, p = data.portfolio || {};
+  const ships = mergeShipments(r, p).sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99));
+  // 포트폴리오 종합 긴급도 → 히어로 색(기존 stance 그라디언트 재사용)
+  const pfStance = (p.deadlineRiskCount ?? 0) > 0 ? "DEADLINE_RISK" : (p.bookNowCount ?? 0) > 0 ? "BOOK_NOW" : "BOOK_SOON";
+
+  const kpis = [
+    ["선적", `${p.shipmentCount ?? ships.length}건`],
+    ["지금 예약", `${p.bookNowCount ?? 0}건`],
+    ["납기 위험", `${p.deadlineRiskCount ?? 0}건`],
+    ["실현 총비용", `$${Number(p.totalCheapestFeasibleUSD ?? 0).toLocaleString("en-US")}`],
+    ["예산 초과 노출", `$${Number(p.budgetExposureUSD ?? 0).toLocaleString("en-US")}`],
+  ];
+  const kpiHtml = kpis.map(([l, v]) => `<div class="pf-kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
 
   const heroHtml = `
-      <div class="reco-hero">
-        <div>
-          <span class="stance-badge">${sm.icon} ${sm.label}</span>
-          <span class="conf">신뢰도 ${esc(r.confidence)}</span>
-        </div>
-        <div class="verdict">${esc(r.verdict)}</div>
-        <div class="subline"><b>${esc(b.company)}</b> · ${esc(b.shipment.lane)} (${esc(b.shipment.routeLabel || "")}) · ${esc(b.shipment.equipment)}×${b.shipment.containers} · 납기 ${esc(b.shipment.requiredDeliveryDate)}</div>
-        <div class="reco-sail">
-          <span class="sv">${sailName}</span>
-          <span class="leg">${esc(s.service || "")} · ETD ${mdShort(s.etd)} → ETA ${mdShort(s.eta)}</span>
-          <span class="pz">$${Number(s.priceUSDPerFeu || 0).toLocaleString("en-US")}<span style="font-size:11px;font-weight:600;opacity:.8">/FEU</span></span>
-          <span class="why">${esc(s.why || "")}</span>
-        </div>
-        ${compact ? `<a class="more-link" href="recommendation.html">전체 분석 보기 →</a>` : ""}
-      </div>`;
+    <div class="reco-hero">
+      <div><span class="stance-badge">📦 포트폴리오 종합 판정</span></div>
+      <div class="verdict">${esc(r.verdict || "")}</div>
+      <div class="pf-kpis">${kpiHtml}</div>
+      ${compact ? `<a class="more-link" href="recommendation.html">전체 포트폴리오 분석 →</a>` : ""}
+    </div>`;
 
   if (compact) {
-    mount.innerHTML = `<div class="reco compact ${r.stance}">${heroHtml}</div>`;
+    const top = ships.slice(0, 2).map(shipCardHtml).join("");
+    mount.innerHTML = `<div class="reco ${pfStance}">${heroHtml}<div class="pf-ships compact">${top}</div></div>`;
     return;
   }
 
-  const keys = (r.keyNumbers || []).map((k) => `
+  const narrHtml = esc(r.summaryNarrative || "").replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>");
+  const keys = (r.portfolioKeyNumbers || []).map((k) => `
     <div class="reco-key"><div class="kl">${esc(k.label)}</div><div class="kv">${esc(k.value)}</div><div class="kn">${esc(k.note || "")}</div></div>`).join("");
-  const col = (cls, icon, title, items) => `
-    <div class="reco-col ${cls}"><h4>${icon} ${title}</h4><ul>${(items || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`;
-  const narrHtml = esc(r.narrative).replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>");
+  const actionsHtml = (r.actions || []).map((x) => `<li>${esc(x)}</li>`).join("");
+  const src = p.dataSources || {};
 
   mount.innerHTML = `
-    <div class="reco ${r.stance}">
+    <div class="reco ${pfStance}">
       ${heroHtml}
       <div class="reco-body">
         <div class="reco-keys">${keys}</div>
         <div class="reco-narr"><p>${narrHtml}</p></div>
-        <div class="reco-cols">
-          ${col("act", "✅", "오늘 할 일", r.actions)}
-          ${col("risk", "⚠️", "주의·리스크", r.risks)}
-          ${col("watch", "🔁", "이러면 재검토", r.watchTriggers)}
-        </div>
+        ${actionsHtml ? `<div class="reco-col act"><h4>✅ 포트폴리오 차원 오늘 할 일</h4><ul>${actionsHtml}</ul></div>` : ""}
+        <div class="section-title" style="margin-top:18px;">선적별 판단 <span class="sub">· 우선순위 순</span></div>
+        <div class="pf-ships">${ships.map(shipCardHtml).join("")}</div>
         <div class="reco-foot">
           <span class="ai-badge">AI 생성 · Bedrock</span>
-          <span>다음 재검토 ${esc(r.nextReviewDate || "-")}</span>
-          <span>· 데이터: KCCI ${esc(src.kcci || "-")} / 회사 ${esc(src.company || "-")} / 현재선적 ${esc(src.currentShipmentSource || "-")} / 뉴스 ${src.news ?? 0}건</span>
-          <span>· 근거 항차 ${b.schedule.feasibleCount}/${b.schedule.boardable}편 납기충족</span>
+          <span>기준일 ${esc(data.asOf || "-")}</span>
+          <span>· 데이터: KCCI ${esc(src.kcci || "-")} / 회사 ${esc(src.company || "-")} / 스케줄 실측 매칭 / 뉴스 ${src.news ?? 0}건</span>
           <button class="reco-refresh" id="recoRefresh">다시 분석</button>
         </div>
       </div>
     </div>`;
   const btn = document.getElementById("recoRefresh");
-  if (btn) btn.addEventListener("click", () => loadRecommendation(mountId, false, true));
+  if (btn) btn.addEventListener("click", () => refreshRecommendation(mountId, compact));
 }
-async function loadRecommendation(mountId = "recoMount", compact = false, force = false) {
+
+// 저장된 최신 포트폴리오를 즉시 렌더. 없으면 "분석 실행" 안내.
+async function loadRecommendation(mountId = "recoMount", compact = false) {
   const mount = document.getElementById(mountId);
   if (!mount) return;
-  if (force) mount.innerHTML = `<div class="reco"><div class="reco-loading">추천 재분석 중…</div></div>`;
   try {
-    const res = await fetch(`${API_URL}/recommendations`, { signal: AbortSignal.timeout(force ? 30000 : 8000) });
-    if (res.ok) { const data = await res.json(); if (data.recommendation) return renderRecommendation(mountId, data, compact); }
-    throw new Error("no live reco");
+    const data = await (await authedFetch(`${API_URL}/recommendations`, { signal: AbortSignal.timeout(10000) })).json();
+    if (data.status === "ready" && data.recommendation) return renderPortfolio(mountId, data, compact);
+    // 아직 계산된 적 없음 → 실행 유도
+    mount.innerHTML = `
+      <div class="reco"><div class="reco-empty">
+        <div class="ttl">📦 AI 포트폴리오 분석</div>
+        <div class="dsc">예정 선적들을 실제 스케줄·시장운임과 매칭해 "어느 건을 언제·어떤 배·얼마에 보낼지" 종합 판단합니다.</div>
+        <button class="auth-btn primary" id="recoRun" style="max-width:220px;">분석 실행 (수십 초)</button>
+      </div></div>`;
+    const run = document.getElementById("recoRun");
+    if (run) run.addEventListener("click", () => refreshRecommendation(mountId, compact));
   } catch (e) {
-    try {
-      const demo = await (await fetch("./recommendation-demo.json")).json();
-      renderRecommendation(mountId, demo, compact);
-    } catch (e2) {
-      mount.innerHTML = `<div class="reco"><div class="reco-loading err">추천을 불러오지 못했습니다: ${e2.message}</div></div>`;
-    }
+    mount.innerHTML = `<div class="reco"><div class="reco-loading err">추천 조회 실패: ${esc(e.message)}</div></div>`;
   }
+}
+
+// 재계산 트리거(POST /refresh) 후 준비될 때까지 폴링.
+async function refreshRecommendation(mountId = "recoMount", compact = false) {
+  const mount = document.getElementById(mountId);
+  if (!mount) return;
+  mount.innerHTML = `<div class="reco"><div class="reco-loading">🧠 포트폴리오 분석 중… (스케줄 매칭 + AI 종합, 최대 1분)</div></div>`;
+  try {
+    await authedFetch(`${API_URL}/recommendations/refresh`, { method: "POST" });
+  } catch (e) {
+    mount.innerHTML = `<div class="reco"><div class="reco-loading err">분석 시작 실패: ${esc(e.message)}</div></div>`;
+    return;
+  }
+  for (let i = 0; i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    try {
+      const data = await (await authedFetch(`${API_URL}/recommendations`, { signal: AbortSignal.timeout(10000) })).json();
+      if (data.status === "ready" && data.recommendation) return renderPortfolio(mountId, data, compact);
+    } catch { /* keep polling */ }
+  }
+  mount.innerHTML = `<div class="reco"><div class="reco-loading err">분석이 예상보다 오래 걸립니다. 잠시 후 새로고침해 주세요.</div></div>`;
 }
 
 /* ---------- 실시간 스케줄 · 참고 운임 ----------
@@ -598,6 +739,10 @@ async function fetchSchedule() {
   const data = await (await fetch(`${API_URL}/schedule`)).json();
   scheduleCache = data.routes ?? [];
   return scheduleCache;
+}
+async function fetchFullRouteSchedule(routeCode) {
+  const data = await (await fetch(`${API_URL}/schedule/${routeCode}`)).json();
+  return data.route;
 }
 function schedCardHtml(c) {
   return `
@@ -644,7 +789,25 @@ async function renderSchedCards(stripId, limit) {
     return;
   }
   strip.innerHTML = routes.map((route) => `
-    <div class="sched-group-title">${ccFlag("KR")} Busan → ${ccFlag(route.destCC)} ${route.destName}</div>
-    <div class="sched-strip">${route.sailings.map((s) => schedCardHtml({ ...route, ...s })).join("")}</div>
+    <div class="sched-group-title">
+      ${ccFlag("KR")} Busan → ${ccFlag(route.destCC)} ${route.destName}
+      ${route.total > route.sailings.length ? `<button type="button" class="sched-viewall" data-route="${route.routeCode}">전체 ${route.total}건 보기 →</button>` : ""}
+    </div>
+    <div class="sched-strip" id="sched-strip-${route.routeCode}">${route.sailings.map((s) => schedCardHtml({ ...route, ...s })).join("")}</div>
   `).join("");
+  strip.querySelectorAll(".sched-viewall").forEach((btn) => btn.addEventListener("click", () => loadFullRouteSchedule(btn)));
+}
+async function loadFullRouteSchedule(btn) {
+  const routeCode = btn.dataset.route;
+  const container = document.getElementById(`sched-strip-${routeCode}`);
+  btn.disabled = true;
+  btn.textContent = "불러오는 중…";
+  try {
+    const route = await fetchFullRouteSchedule(routeCode);
+    container.innerHTML = route.sailings.map((s) => schedCardHtml({ ...route, ...s })).join("");
+    btn.remove();
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = `조회 실패(${e.message}) — 다시 시도`;
+  }
 }

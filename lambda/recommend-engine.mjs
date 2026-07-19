@@ -120,6 +120,56 @@ export function buildBrief(input) {
   };
 }
 
+// 여러 선적 브리프(각각 buildBrief 결과)를 포트폴리오로 집계한다 — 순수 함수.
+// "무엇을 얼마에 보낼 수 있나(실제 스케줄 최저 실현가)"와 "예산 초과 노출·긴급도"를 회사 단위로 합산.
+export function summarizePortfolio(briefs) {
+  const items = briefs.filter(Boolean);
+  const leanCount = {};
+  let totalBudget = 0, totalCheapest = 0, exposure = 0;
+
+  const perShipment = items.map((b) => {
+    const feu = b.shipment.containers || 1;
+    const cf = b.schedule.cheapestFeasible;              // 실제 스케줄 중 납기·환적 충족 최저가 항차
+    const cheapestTotal = cf ? cf.totalUSD : null;        // FEU 반영 총액
+    const budgetTotal = b.shipment.budgetTotal ?? null;
+    const exp = (cheapestTotal != null && budgetTotal != null) ? Math.max(0, cheapestTotal - budgetTotal) : 0;
+    const lean = b.timing?.lean ?? "INSUFFICIENT";
+    leanCount[lean] = (leanCount[lean] ?? 0) + 1;
+    if (cheapestTotal != null) totalCheapest += cheapestTotal;
+    if (budgetTotal != null) totalBudget += budgetTotal;
+    exposure += exp;
+    return {
+      id: b.shipment.id, lane: b.shipment.lane, routeCode: b.shipment.routeCode, routeLabel: b.shipment.routeLabel,
+      customer: b.shipment.customer, containers: feu,
+      cargoReadyDate: b.shipment.cargoReadyDate, requiredDeliveryDate: b.shipment.requiredDeliveryDate,
+      lean, feasibleCount: b.schedule.feasibleCount, deadlineRisk: b.schedule.feasibleCount === 0,
+      cheapestPerFeu: cf?.priceUSD ?? null, cheapestTotal,
+      recommendedSailing: cf ? { vessel: cf.vessel, operator: cf.operator, service: cf.service, etd: cf.etd, eta: cf.eta, direct: cf.direct, priceUSDPerFeu: cf.priceUSD } : null,
+      budgetTotal, vsBudgetPct: (cheapestTotal != null && budgetTotal) ? Number(((cheapestTotal / budgetTotal - 1) * 100).toFixed(1)) : null,
+      marketPctile: b.market?.pctile52 ?? null,
+    };
+  });
+
+  // 긴급도 정렬: 납기위험 > 지금예약 > 곧예약 > 관망
+  const rank = { DEADLINE_RISK: 0, BOOK_NOW: 1, BOOK_SOON: 2, CONSIDER_WAIT: 3, INSUFFICIENT: 4 };
+  const priority = [...perShipment]
+    .sort((a, b) => (rank[a.lean] - rank[b.lean]) || a.requiredDeliveryDate.localeCompare(b.requiredDeliveryDate))
+    .map((s) => s.id);
+
+  return {
+    shipmentCount: items.length,
+    leanCount,
+    bookNowCount: (leanCount.BOOK_NOW ?? 0) + (leanCount.DEADLINE_RISK ?? 0),
+    deadlineRiskCount: perShipment.filter((s) => s.deadlineRisk).length,
+    totalBudgetUSD: Math.round(totalBudget),
+    totalCheapestFeasibleUSD: Math.round(totalCheapest),
+    budgetExposureUSD: Math.round(exposure),
+    totalVsBudgetPct: totalBudget ? Number(((totalCheapest / totalBudget - 1) * 100).toFixed(1)) : null,
+    shipments: perShipment,
+    priority,
+  };
+}
+
 // 부드러운 타이밍 판독: 시장국면 × 납기압박 × 자리 가용성
 function readTiming({ market, feasible, candidates, deadlineLatestEta, current, buffer }) {
   const signals = [];

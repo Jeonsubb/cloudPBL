@@ -5,6 +5,7 @@
 // 대화 이력도 프론트가 매 요청 들고 오는 대신 에이전트 세션(sessionId, 유휴 30분)이 서버측에 보관한다.
 import { randomUUID } from "node:crypto";
 import { BedrockAgentRuntimeClient, InvokeAgentCommand } from "@aws-sdk/client-bedrock-agent-runtime";
+import { companyIdFromEvent } from "./tenant.mjs";
 
 const agentRuntime = new BedrockAgentRuntimeClient({});
 const AGENT_ID = process.env.AGENT_ID;
@@ -24,11 +25,15 @@ export async function handler(event) {
   // 세션 id는 프론트가 보관했다가 재전송(같은 대화 이어가기). 없거나 형식이 이상하면 새 대화 시작.
   const sessionId = /^[a-zA-Z0-9._:-]{2,100}$/.test(String(body.sessionId ?? "")) ? body.sessionId : randomUUID();
 
+  // 로그인한 회사 id를 세션 속성으로 전달 → agent-tools가 이 회사의 선적/추천만 조회한다.
+  const companyId = companyIdFromEvent(event);
+
   const result = await agentRuntime.send(new InvokeAgentCommand({
     agentId: AGENT_ID,
     agentAliasId: AGENT_ALIAS_ID,
     sessionId,
     inputText: message,
+    sessionState: { sessionAttributes: { companyId } },
   }));
 
   // 응답은 이벤트 스트림 — 텍스트 청크만 모은다.

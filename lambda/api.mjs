@@ -12,6 +12,8 @@ import { handler as companyUploadHandler } from "./company-upload.mjs";
 import { handler as scheduleHandler } from "./schedule-query.mjs";
 
 export async function handler(event) {
+  // 포트폴리오 비동기 자기호출(recommend.mjs가 Event 타입으로 재호출) — 경로 없이 들어온다.
+  if (event?.internalCompute) return recommendHandler(event);
   const path = event.rawPath || event.requestContext?.http?.path || "";
   if (path.startsWith("/news")) return newsHandler(event);
   if (path.startsWith("/recommendations")) return recommendHandler(event);

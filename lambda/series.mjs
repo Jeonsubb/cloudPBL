@@ -57,4 +57,26 @@ export const SERIES = [
     prefix: "ECOS",
     category: "rate",
   },
+  // 국제유가 — ECOS 국제상품가격(902Y003)은 월별뿐이라(2026-07 확인) FRED(fred.mjs, API키 불필요)의
+  // 진짜 일별 시리즈를 쓴다. source:"fred"인 항목은 collector.mjs가 ecos.mjs 대신 fred.mjs로 수집한다.
+  {
+    id: "OIL_WTI",
+    label: "국제유가(WTI)",
+    source: "fred",
+    fredSeriesId: "DCOILWTICO",
+    unit: "달러/배럴",
+    historyStart: "1986-01-02",
+    prefix: "FRED",
+    category: "oil",
+  },
+  {
+    id: "OIL_BRENT",
+    label: "국제유가(브렌트유)",
+    source: "fred",
+    fredSeriesId: "DCOILBRENTEU",
+    unit: "달러/배럴",
+    historyStart: "1987-05-20",
+    prefix: "FRED",
+    category: "oil",
+  },
 ];

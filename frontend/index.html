@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PortPulse — 종합 대시보드</title>
-<link rel="stylesheet" href="common.css" />
+<link rel="stylesheet" href="common.css?v=7" />
 </head>
 <body>
 <div class="wrap">
@@ -62,7 +62,7 @@
   </div>
 </div>
 
-<script src="common.js"></script>
+<script src="common.js?v=7"></script>
 <script>
 async function loadHomeStatus() {
   const status = await refreshHomeStatusSilently();
@@ -76,7 +76,7 @@ async function loadHomeStatus() {
   else { curText.textContent = "현재 선적 미입력"; }
 }
 async function refreshHomeStatusSilently() {
-  try { return await (await fetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json(); }
+  try { return await (await authedFetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json(); }
   catch { return null; }
 }
 

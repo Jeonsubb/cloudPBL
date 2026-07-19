@@ -117,7 +117,7 @@ const ACTION_GROUPS = (toolsArn) => [
 ];
 
 export class PortpulseAgent extends Construct {
-  constructor(scope, id, { lambdaDir, marketTable, newsTable, recoTable, companyBucket, companyKey, modelId }) {
+  constructor(scope, id, { lambdaDir, marketTable, newsTable, recoTable, companyBucket, companyKey, modelId, guardrail, knowledgeBase }) {
     super(scope, id);
     const stack = Stack.of(this);
 
@@ -164,6 +164,18 @@ export class PortpulseAgent extends Construct {
       actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:GetInferenceProfile"],
       resources: ["*"],
     }));
+    if (guardrail) {
+      agentRole.addToPolicy(new PolicyStatement({
+        actions: ["bedrock:ApplyGuardrail"],
+        resources: ["*"],
+      }));
+    }
+    if (knowledgeBase) {
+      agentRole.addToPolicy(new PolicyStatement({
+        actions: ["bedrock:Retrieve", "bedrock:RetrieveAndGenerate"],
+        resources: ["*"],
+      }));
+    }
 
     const agent = new CfnAgent(this, "Agent", {
       agentName: "portpulse-agent",
@@ -174,8 +186,14 @@ export class PortpulseAgent extends Construct {
       instruction: AGENT_INSTRUCTION,
       actionGroups: ACTION_GROUPS(toolsFn.functionArn),
       autoPrepare: true, // 스키마·지침 변경 배포 시 자동 재준비(PREPARED) — 수동 콘솔 작업 제거
-      idleSessionTtlInSeconds: 1800, // 챗봇 세션 유휴 30분 유지(대화 이력은 에이전트가 서버측 보관)
+      idleSessionTtlInSeconds: 900, // 삭제 전 관측값과 동일(2026-07-19 사고기록 참조)
       description: "PortPulse 해운·물류 어시스턴트 — 시장/뉴스/선적 DB 도구 + 웹 검색",
+      guardrailConfiguration: guardrail
+        ? { guardrailIdentifier: guardrail.guardrailId, guardrailVersion: guardrail.guardrailVersion }
+        : undefined,
+      knowledgeBases: knowledgeBase
+        ? [{ knowledgeBaseId: knowledgeBase.knowledgeBaseId, description: "PortPulse 해운 도메인 문서 RAG", knowledgeBaseState: "ENABLED" }]
+        : undefined,
     });
     agent.node.addDependency(agentRole);
 

@@ -16,6 +16,7 @@ import { KCCI_SERIES } from "./kcci-series.mjs";
 import { buildDecisionCard } from "./decision.mjs";
 import { SHIPMENTS, QUOTES } from "./sample-portfolio.mjs";
 import { loadCompany } from "./recommend.mjs";
+import { DEFAULT_COMPANY_ID, recoPartitionKey } from "./tenant.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const secretsClient = new SecretsManagerClient({});
@@ -158,22 +159,22 @@ async function getShipmentDecisions() {
 }
 
 // 회사의 "이번 선적"(UI 폼 제출본 > 업로드 엑셀 > 번들 샘플 순).
-async function getCurrentShipment() {
-  const company = await loadCompany();
+async function getCurrentShipment(_params, companyId) {
+  const company = await loadCompany(companyId);
   if (!company?.current) return { error: "현재 선적 데이터 없음(엑셀 업로드 또는 현재 선적 폼 입력 필요)" };
   return { source: company.currentSource, current: company.current, policy: company.policy ?? null };
 }
 
 // 최신 AI 선적 추천 이력(recommend.mjs가 DynamoDB에 저장한 것).
-async function getLatestRecommendation() {
+async function getLatestRecommendation(_params, companyId) {
   if (!RECO_TABLE) return { error: "추천 이력 테이블 미설정" };
-  const company = await loadCompany();
+  const company = await loadCompany(companyId);
   const shipmentId = company?.current?.shipmentId;
   if (!shipmentId) return { error: "현재 선적 데이터가 없어 추천 이력을 찾을 수 없음" };
   const r = await ddb.send(new QueryCommand({
     TableName: RECO_TABLE,
     KeyConditionExpression: "shipmentId = :s",
-    ExpressionAttributeValues: { ":s": shipmentId },
+    ExpressionAttributeValues: { ":s": recoPartitionKey(companyId, shipmentId) },
     ScanIndexForward: false, Limit: 1,
   }));
   const item = r.Items?.[0];
@@ -244,10 +245,12 @@ const TOOLS = {
 export async function handler(event) {
   const fn = TOOLS[event.function];
   const params = Object.fromEntries((event.parameters ?? []).map((p) => [p.name, p.value]));
+  // chat.mjs가 sessionState.sessionAttributes로 넘긴 회사 id — 회사 데이터 도구가 이 회사만 조회하게 한다.
+  const companyId = event.sessionAttributes?.companyId || DEFAULT_COMPANY_ID;
 
   let body;
   try {
-    body = fn ? await fn(params) : { error: `unknown function: ${event.function}` };
+    body = fn ? await fn(params, companyId) : { error: `unknown function: ${event.function}` };
   } catch (e) {
     console.error(`도구 실행 실패 [${event.function}]:`, e);
     body = { error: `도구 실행 실패: ${e.message}` };

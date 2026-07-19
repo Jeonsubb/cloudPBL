@@ -11,6 +11,9 @@ import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Bucket, BlockPublicAccess, HttpMethods } from "aws-cdk-lib/aws-s3";
 import { fileURLToPath } from "node:url";
 import { PortpulseAgent } from "./portpulse-agent.mjs";
+import { PortpulseGuardrail, PortpulseKnowledgeBase } from "./portpulse-rag.mjs";
+import { PortpulseAuth } from "./portpulse-auth.mjs";
+import { PortpulseWeb } from "./portpulse-web.mjs";
 
 const lambdaDir = fileURLToPath(new URL("../../lambda", import.meta.url));
 
@@ -32,7 +35,7 @@ export class MarketStack extends Stack {
       runtime: Runtime.NODEJS_22_X,
       handler: "collector.handler",
       code: Code.fromAsset(lambdaDir),
-      timeout: Duration.minutes(2),
+      timeout: Duration.minutes(4), // FRED 대용량 백필(수십년치 CSV) 여유
       memorySize: 256,
       logGroup: new LogGroup(this, "EcosCollectorLogs", {
         retention: RetentionDays.ONE_MONTH,
@@ -210,6 +213,10 @@ export class MarketStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Guardrail + Knowledge Base(RAG) — 2026-07-19 사고로 유실되어 재구축(portpulse-rag.mjs 상단 주석 참조).
+    const guardrail = new PortpulseGuardrail(this, "PortpulseGuardrail");
+    const knowledgeBase = new PortpulseKnowledgeBase(this, "PortpulseKB");
+
     // Bedrock Agent — 챗봇·어드바이저가 호출하는 도구 사용형 에이전트.
     // 도구 Lambda(agent-tools)·지침·액션그룹·별칭(live)을 portpulse-agent.mjs가 묶어서 만든다.
     const agent = new PortpulseAgent(this, "PortpulseAgent", {
@@ -219,7 +226,10 @@ export class MarketStack extends Stack {
       recoTable,
       companyBucket,
       companyKey,
-      modelId: process.env.BEDROCK_AGENT_MODEL_ID ?? "global.anthropic.claude-opus-4-5-20251101-v1:0",
+      // 서울(ap-northeast-2)에서 Sonnet 4는 온디맨드 원본 ID 대신 APAC 크로스리전 추론 프로필로 호출해야 한다.
+      modelId: process.env.BEDROCK_AGENT_MODEL_ID ?? "apac.anthropic.claude-sonnet-4-20250514-v1:0",
+      guardrail,
+      knowledgeBase,
     });
 
     // 읽기 전용 조회 + AI 추천 통합: /series · /news/top · /shipments · /recommendations.
@@ -230,7 +240,8 @@ export class MarketStack extends Stack {
       runtime: Runtime.NODEJS_22_X,
       handler: "api.handler",
       code: Code.fromAsset(lambdaDir),
-      timeout: Duration.seconds(60),
+      // 포트폴리오 비동기 계산(스케줄 매칭 + Bedrock 1회)이 이 함수의 자기호출로 실행돼 여유 필요.
+      timeout: Duration.seconds(120),
       memorySize: 512,
       logGroup: new LogGroup(this, "ApiQueryLogs", {
         retention: RetentionDays.ONE_MONTH,
@@ -243,6 +254,7 @@ export class MarketStack extends Stack {
         SCHEDULE_TABLE_NAME: scheduleTable.tableName,
         COMPANY_BUCKET: companyBucket.bucketName,
         COMPANY_KEY: companyKey,
+        SELF_FUNCTION_NAME: "portpulse-api-query", // 비동기 자기호출 대상(포트폴리오 재계산)
         BEDROCK_MODEL_ID: "global.anthropic.claude-opus-4-5-20251101-v1:0",
       },
     });
@@ -251,6 +263,12 @@ export class MarketStack extends Stack {
     recoTable.grantReadWriteData(apiQuery);
     scheduleTable.grantReadData(apiQuery);
     companyBucket.grantReadWrite(apiQuery); // presigned PUT 발급 + /shipments/current 직접 저장
+    // 자기호출 권한 — grantInvoke(self)는 함수 객체를 서로 참조해 CFN 순환의존을 만들므로
+    // 고정 functionName으로 ARN을 직접 구성해 부여한다(순환 없음).
+    apiQuery.addToRolePolicy(new PolicyStatement({
+      actions: ["lambda:InvokeFunction"],
+      resources: [`arn:aws:lambda:${this.region}:${this.account}:function:portpulse-api-query`],
+    }));
     apiQuery.addToRolePolicy(
       new PolicyStatement({ actions: ["bedrock:InvokeModel", "bedrock:Converse"], resources: ["*"] }),
     );
@@ -312,29 +330,37 @@ export class MarketStack extends Stack {
     });
     agent.grantInvoke(chatFn);
 
+    // 인증(Cognito) — 회사별 계정/데이터 분리의 기반.
+    const auth = new PortpulseAuth(this, "PortpulseAuth");
+
     const httpApi = new HttpApi(this, "MarketApi", {
       apiName: "portpulse-market-api",
       corsPreflight: {
         allowOrigins: ["*"],
         allowMethods: [CorsHttpMethod.GET, CorsHttpMethod.POST],
-        allowHeaders: ["content-type"],
+        allowHeaders: ["content-type", "authorization"],
       },
     });
     const apiIntegration = new HttpLambdaIntegration("ApiQueryIntegration", apiQuery);
+    // ── 공개(전역 시장 데이터) 경로 — 로그인 불필요 ──
     httpApi.addRoutes({ path: "/series", methods: [HttpMethod.GET], integration: apiIntegration });
     httpApi.addRoutes({ path: "/series/{seriesId}", methods: [HttpMethod.GET], integration: apiIntegration });
     httpApi.addRoutes({ path: "/news/top", methods: [HttpMethod.GET], integration: apiIntegration });
     httpApi.addRoutes({ path: "/shipments", methods: [HttpMethod.GET], integration: apiIntegration });
     httpApi.addRoutes({ path: "/shipments/{shipmentId}/advisor", methods: [HttpMethod.GET], integration: apiIntegration });
-    httpApi.addRoutes({ path: "/recommendations", methods: [HttpMethod.GET], integration: apiIntegration });
-    httpApi.addRoutes({ path: "/recommendations/{shipmentId}", methods: [HttpMethod.GET], integration: apiIntegration });
-    httpApi.addRoutes({ path: "/company/upload-url", methods: [HttpMethod.GET], integration: apiIntegration });
-    httpApi.addRoutes({ path: "/company/status", methods: [HttpMethod.GET], integration: apiIntegration });
-    httpApi.addRoutes({ path: "/shipments/current", methods: [HttpMethod.GET, HttpMethod.POST], integration: apiIntegration });
     httpApi.addRoutes({ path: "/schedule", methods: [HttpMethod.GET], integration: apiIntegration });
+    httpApi.addRoutes({ path: "/schedule/{routeCode}", methods: [HttpMethod.GET], integration: apiIntegration });
+
+    // ── 보호(회사별 데이터) 경로 — Cognito JWT 필요, companyId=jwt.sub ──
+    httpApi.addRoutes({ path: "/recommendations", methods: [HttpMethod.GET], integration: apiIntegration, authorizer: auth.authorizer });
+    httpApi.addRoutes({ path: "/recommendations/refresh", methods: [HttpMethod.POST], integration: apiIntegration, authorizer: auth.authorizer });
+    httpApi.addRoutes({ path: "/recommendations/{shipmentId}", methods: [HttpMethod.GET], integration: apiIntegration, authorizer: auth.authorizer });
+    httpApi.addRoutes({ path: "/company/upload-url", methods: [HttpMethod.GET], integration: apiIntegration, authorizer: auth.authorizer });
+    httpApi.addRoutes({ path: "/company/status", methods: [HttpMethod.GET], integration: apiIntegration, authorizer: auth.authorizer });
+    httpApi.addRoutes({ path: "/shipments/current", methods: [HttpMethod.GET, HttpMethod.POST], integration: apiIntegration, authorizer: auth.authorizer });
 
     const chatIntegration = new HttpLambdaIntegration("ChatBotIntegration", chatFn);
-    httpApi.addRoutes({ path: "/chat", methods: [HttpMethod.POST], integration: chatIntegration });
+    httpApi.addRoutes({ path: "/chat", methods: [HttpMethod.POST], integration: chatIntegration, authorizer: auth.authorizer });
 
     new CfnOutput(this, "TableName", { value: table.tableName });
     new CfnOutput(this, "NewsTableName", { value: newsTable.tableName });
@@ -353,6 +379,15 @@ export class MarketStack extends Stack {
     new CfnOutput(this, "AgentId", { value: agent.agentId });
     new CfnOutput(this, "AgentAliasId", { value: agent.aliasId });
     new CfnOutput(this, "AgentToolsName", { value: agent.toolsFunction.functionName });
+    new CfnOutput(this, "UserPoolId", { value: auth.userPool.userPoolId });
+    new CfnOutput(this, "UserPoolClientId", { value: auth.userPoolClient.userPoolClientId });
+
+    // 프론트 공개 배포(S3+CloudFront) — 라이브 URL.
+    const web = new PortpulseWeb(this, "PortpulseWeb");
+    new CfnOutput(this, "WebUrl", { value: web.url });
+    new CfnOutput(this, "GuardrailId", { value: guardrail.guardrailId });
+    new CfnOutput(this, "KnowledgeBaseId", { value: knowledgeBase.knowledgeBaseId });
+    new CfnOutput(this, "KnowledgeBaseDocsBucket", { value: knowledgeBase.docsBucket.bucketName });
     new CfnOutput(this, "ApiUrl", { value: httpApi.apiEndpoint });
   }
 }

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PortPulse — 로그인</title>
+<link rel="stylesheet" href="common.css?v=7" />
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="dot"></span>
+      <div>
+        <h1>PortPulse</h1>
+        <div class="tag">수출입 기업을 위한 해운 운임·환율·시황 대시보드</div>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" data-tab="login">로그인</button>
+      <button type="button" class="auth-tab" data-tab="signup">회사 가입</button>
+    </div>
+
+    <!-- 로그인 -->
+    <form id="loginForm" class="auth-form">
+      <label>이메일<input type="email" name="email" required autocomplete="username" /></label>
+      <label>비밀번호<input type="password" name="password" required autocomplete="current-password" /></label>
+      <button type="submit" class="auth-btn primary">로그인</button>
+      <div class="auth-msg" id="loginMsg"></div>
+    </form>
+
+    <!-- 가입 -->
+    <form id="signupForm" class="auth-form" style="display:none;">
+      <label>회사명<input type="text" name="company" required placeholder="예: GreenWave Korea Co., Ltd." /></label>
+      <label>이메일<input type="email" name="email" required autocomplete="username" /></label>
+      <label>비밀번호<input type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="8자 이상, 영문 대소문자+숫자" /></label>
+      <button type="submit" class="auth-btn primary">가입하고 인증코드 받기</button>
+      <div class="auth-msg" id="signupMsg"></div>
+    </form>
+
+    <!-- 이메일 인증코드 -->
+    <form id="confirmForm" class="auth-form" style="display:none;">
+      <div class="auth-note">가입하신 이메일로 받은 6자리 인증코드를 입력하세요.</div>
+      <label>인증코드<input type="text" name="code" required inputmode="numeric" placeholder="예: 123456" /></label>
+      <button type="submit" class="auth-btn primary">인증 완료</button>
+      <div class="auth-msg" id="confirmMsg"></div>
+    </form>
+
+    <div class="auth-foot">로그인하면 회사별로 분리된 데이터로 AI 선적 추천을 받을 수 있습니다.</div>
+  </div>
+</div>
+
+<script src="common.js?v=7"></script>
+<script>
+// 이미 로그인 상태면 바로 대시보드로.
+if (idToken()) location.href = "index.html";
+
+const forms = { login: document.getElementById("loginForm"), signup: document.getElementById("signupForm"), confirm: document.getElementById("confirmForm") };
+function showForm(name) {
+  for (const [k, f] of Object.entries(forms)) f.style.display = k === name ? "flex" : "none";
+}
+document.querySelectorAll(".auth-tab").forEach((btn) => btn.addEventListener("click", () => {
+  document.querySelectorAll(".auth-tab").forEach((b) => b.classList.toggle("active", b === btn));
+  showForm(btn.dataset.tab);
+}));
+
+let pendingSignup = null; // { email, password }
+
+forms.login.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("loginMsg");
+  msg.className = "auth-msg"; msg.textContent = "로그인 중…";
+  const fd = new FormData(e.target);
+  try {
+    await ppLogin(fd.get("email").trim(), fd.get("password"));
+    location.href = "index.html";
+  } catch (err) {
+    msg.className = "auth-msg err";
+    msg.textContent = /UserNotConfirmed/i.test(err.message) ? "이메일 인증이 완료되지 않았습니다. 가입 탭에서 인증코드를 입력하세요." : `로그인 실패: ${err.message}`;
+  }
+});
+
+forms.signup.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("signupMsg");
+  msg.className = "auth-msg"; msg.textContent = "가입 처리 중…";
+  const fd = new FormData(e.target);
+  const email = fd.get("email").trim(), password = fd.get("password"), company = fd.get("company").trim();
+  try {
+    await ppSignUp(email, password, company);
+    pendingSignup = { email, password };
+    showForm("confirm");
+    document.getElementById("confirmMsg").textContent = "";
+  } catch (err) {
+    msg.className = "auth-msg err";
+    msg.textContent = /UsernameExists/i.test(err.message) ? "이미 가입된 이메일입니다. 로그인 탭을 이용하세요." : `가입 실패: ${err.message}`;
+  }
+});
+
+forms.confirm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("confirmMsg");
+  msg.className = "auth-msg"; msg.textContent = "인증 중…";
+  const code = new FormData(e.target).get("code").trim();
+  try {
+    await ppConfirmSignUp(pendingSignup.email, code);
+    msg.className = "auth-msg ok"; msg.textContent = "인증 완료! 로그인 중…";
+    await ppLogin(pendingSignup.email, pendingSignup.password);
+    location.href = "index.html";
+  } catch (err) {
+    msg.className = "auth-msg err"; msg.textContent = `인증 실패: ${err.message}`;
+  }
+});
+</script>
+</body>
+</html>

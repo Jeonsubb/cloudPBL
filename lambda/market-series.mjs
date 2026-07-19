@@ -13,12 +13,12 @@ export const SERIES = [
     source,
     category: "shipping",
   })),
-  ...ECOS_SERIES.map(({ id, label, unit, prefix, statCode, itemCode, category }) => ({
+  ...ECOS_SERIES.map(({ id, label, unit, prefix, statCode, itemCode, category, source, fredSeriesId }) => ({
     id,
     label,
     unit,
     prefix,
-    source: `ECOS ${statCode}/${itemCode}`,
+    source: source === "fred" ? `FRED ${fredSeriesId}` : `ECOS ${statCode}/${itemCode}`,
     category,
   })),
 ];
