@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PortPulse — 업무 홈</title>
-<link rel="stylesheet" href="common.css?v=17" />
+<link rel="stylesheet" href="common.css?v=18" />
 </head>
 <body>
 <div class="wrap app-home">
@@ -64,10 +64,10 @@
   <div class="chat-input-row"><input type="text" id="chatInput" placeholder="예: 이번 주 먼저 예약할 선적은?" /><button type="button" id="chatSendBtn" aria-label="전송">➤</button></div>
 </div>
 
-<script src="common.js?v=17"></script>
+<script src="common.js?v=18"></script>
 <script>
 async function loadHomeStatus() {
-  const status = await refreshHomeStatusSilently();
+  const status = await getCompanyStatus({ force: true });
   const excelDot = document.getElementById("ssExcelDot"), excelText = document.getElementById("ssExcelText");
   const curDot = document.getElementById("ssCurDot"), curText = document.getElementById("ssCurText");
   if (!status) { excelText.textContent = "회사 데이터 상태를 확인하지 못했습니다"; curText.textContent = ""; return; }
@@ -76,10 +76,7 @@ async function loadHomeStatus() {
   if (status.currentShipment) { curDot.classList.replace("empty", "ok"); curText.textContent = "현재 선적 등록됨"; }
   else if (status.excel) { curDot.classList.replace("empty", "ok"); curText.textContent = "엑셀의 현재 선적 사용 중"; }
   else { curText.textContent = "분석할 선적을 등록해 주세요"; }
-}
-async function refreshHomeStatusSilently() {
-  try { return await (await authedFetch(`${API_URL}/company/status`, { signal: AbortSignal.timeout(8000) })).json(); }
-  catch { return null; }
+  return status;
 }
 async function main() {
   renderBrandHeader();
@@ -87,10 +84,11 @@ async function main() {
   document.getElementById("welcomeCompany").textContent = companyName();
   document.getElementById("updated").textContent = "오늘의 시장과 선적 현황";
   initChat();
-  loadHomeStatus();
-  loadRecommendation("recoMount", true);
+  const statusPromise = loadHomeStatus();
   loadNews("newsList", null, true);
   renderSchedCards("schedStrip", 3);
+  const status = await statusPromise;
+  loadRecommendation("recoMount", true, status);
   await loadMarketSeries("hero", null);
 }
 main();
