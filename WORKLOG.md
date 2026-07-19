@@ -2,7 +2,7 @@
 
 > 수출입 중소기업용 해운 운임·환율·시황 + AI 선적 추천 대시보드.
 > AWS 서버리스(CDK). 이 문서는 "무슨 작업을 어떤 흐름으로 했는지"의 단일 기록이다.
-> 최종 갱신: 2026-07-19 (Item 1·2·4 완료·배포, Item 3 UI 개편 + 공개배포 진행 중)
+> 최종 갱신: 2026-07-19 (RAG 15문서 재연결·인라인 출처 UI·공개배포 완료)
 
 ---
 
@@ -22,7 +22,7 @@
 | Cognito App Client | `7j7pmgejoq07qdppeb6htt8n6p` |
 | Bedrock Agent | `F32TJKPUTQ` / alias `AXFQDW09SC` |
 | Bedrock Guardrail | `1r94h375essr` (DRAFT 참조) |
-| Knowledge Base | `36YXAKBI8M` (⚠️ 문서 비어있음 — 원본 유실, 재인제스천 필요) |
+| Knowledge Base | `OM4HXRSTIC` / data source `MZPYT16QFG` (KOBC·DCSA 15문서 인제스천 완료) |
 | DynamoDB | portpulse-market-timeseries / -news / -recommendations / -schedule |
 | S3 | portpulse-company-uploads-{account} / portpulse-knowledge-base-{account} |
 
@@ -74,7 +74,12 @@
 - ⚠️ **사고 기록**: 앞선 `cdk deploy`가 다른 사람이 만들어 git에 없던 Agent/KB/Guardrail을 삭제함
   (KB 인제스천 문서까지 S3 autoDelete로 유실, 복구 불가 확인).
 - 복구: Agent+도구는 전동훈님 git 브랜치(`feature/bedrock-agent`)에서 100% 복원. Guardrail은 의도대로 재작성,
-  KB는 인프라만 재구축(문서 비어있음).
+  KB는 S3 Vectors + Titan Embed v2로 재구축하고 KOBC·DCSA 15문서를 인제스천함.
+- S3 Vectors 인덱스의 `AMAZON_BEDROCK_TEXT`·`AMAZON_BEDROCK_METADATA`를 non-filterable로 설정해
+  2KB 필터 메타데이터 제한 오류를 해결. 문서 15/15 색인 성공, 실패 0건.
+- InvokeAgent attribution을 채팅 API가 문장 구간+문서 메타데이터로 반환하고, 프론트는 근거 문장 바로 뒤에
+  클릭 가능한 `[1]` 출처를 표시. 클릭 시 비공개 S3 원문을 여는 1시간 presigned URL을 발급한다.
+  Agent 구성 해시 기반 alias 갱신으로 이전 KB 버전 고정 문제 방지.
 - 함정 해결: Guardrail 토픽 한글명→영문, Sonnet4 온디맨드 불가→APAC 추론프로필(`apac.anthropic.claude-sonnet-4...`),
   Agent alias가 옛 버전 참조→재스냅샷, Guardrail이 항구명을 PII로 오인→ADDRESS 규칙 제거 + DRAFT 참조.
 - **교훈: 배포 전 항상 `cdk diff`로 `[-]`(삭제) 없는지 확인.**
@@ -94,7 +99,7 @@
   자기 자신을 async(Event) 호출해 계산 후 저장 → 프론트 폴링.
 - 프론트: 포트폴리오 히어로(KPI) + 건별 카드. 검증 완료(데모 5개 항로, 실제 ONE/SINOKOR/HEUNG-A 선박 매칭).
 
-### G. Item 3 — UI 전면 개편 + 공개 배포 (진행 중)
+### G. Item 3 — UI 전면 개편 + 공개 배포 (완료)
 - 좌측 사이드바 네비 + 대시보드 첫화면(핵심 정보 추림) + 톤 정리.
 - 프론트를 S3 + CloudFront로 배포해 실제 공개 URL 제공.
 

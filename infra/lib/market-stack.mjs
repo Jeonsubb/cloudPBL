@@ -329,6 +329,9 @@ export class MarketStack extends Stack {
       }),
     });
     agent.grantInvoke(chatFn);
+    // RAG citation 클릭 시 실제 비공개 S3 문서를 여는 1시간짜리 presigned GET URL을 발급한다.
+    knowledgeBase.docsBucket.grantRead(chatFn);
+    chatFn.addEnvironment("KB_DOCS_BUCKET", knowledgeBase.docsBucket.bucketName);
 
     // 인증(Cognito) — 회사별 계정/데이터 분리의 기반.
     const auth = new PortpulseAuth(this, "PortpulseAuth");
@@ -387,6 +390,7 @@ export class MarketStack extends Stack {
     new CfnOutput(this, "WebUrl", { value: web.url });
     new CfnOutput(this, "GuardrailId", { value: guardrail.guardrailId });
     new CfnOutput(this, "KnowledgeBaseId", { value: knowledgeBase.knowledgeBaseId });
+    new CfnOutput(this, "KnowledgeBaseDataSourceId", { value: knowledgeBase.dataSourceId });
     new CfnOutput(this, "KnowledgeBaseDocsBucket", { value: knowledgeBase.docsBucket.bucketName });
     new CfnOutput(this, "ApiUrl", { value: httpApi.apiEndpoint });
   }

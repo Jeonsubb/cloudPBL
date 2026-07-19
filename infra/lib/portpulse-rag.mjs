@@ -7,7 +7,7 @@
 // 이 파일은 CloudTrail에 남은 삭제 직전 설정값(임베딩모델·청킹·스토리지 타입 등은 정확히 복원,
 // Guardrail 정책 세부 내용은 보안상 CloudTrail에도 안 남아 architecture.drawio의 명시된 의도대로
 // 재구성)을 기반으로 한 재구축본이다. kimminseo의 원본 코드/문서가 발견되면 이 파일을 그걸로
-// 교체할 것 — 지금은 빈 Knowledge Base로 시작한다(문서 원본 자체가 복구 불가라 재인제스천 필요).
+// 교체할 것. 복구 후에는 로컬 knowledge-base 문서를 다시 S3에 올려 인제스천한다.
 import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
 import { Bucket, BlockPublicAccess } from "aws-cdk-lib/aws-s3";
 import { Role, ServicePrincipal, PolicyStatement } from "aws-cdk-lib/aws-iam";
@@ -68,31 +68,35 @@ export class PortpulseGuardrail extends Construct {
 }
 
 // Knowledge Base(RAG) — S3 Vectors 저장, Titan Embed v2, FIXED_SIZE 청킹(512토큰/20% 오버랩).
-// 전부 삭제 직전 CloudTrail 관측값과 동일. 문서 버킷은 비어 있는 채로 시작(원본 복구 불가).
+// 전부 삭제 직전 CloudTrail 관측값과 동일. 문서는 배포 후 별도 동기화·인제스천한다.
 export class PortpulseKnowledgeBase extends Construct {
   constructor(scope, id) {
     super(scope, id);
     const stack = Stack.of(this);
 
-    // KB 원본 문서 버킷 — 재사고 방지: autoDeleteObjects는 그대로 두되(스택 삭제 시 정리 목적),
-    // 문서를 다시 채운 뒤에는 이 버킷을 별도 백업(예: 주기적 S3 Cross-Region Replication)해둘 것.
+    // KB 원본 문서 버킷 — 스택 삭제/교체와 문서 수명을 분리해 지난 유실 사고 재발을 막는다.
     const docsBucket = new Bucket(this, "KnowledgeBaseBucket", {
       bucketName: `portpulse-knowledge-base-${stack.account}`,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
-      versioned: true, // 지난 사고 재발 방지 — 이번엔 버전관리를 켠다.
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
+      versioned: true,
+      removalPolicy: RemovalPolicy.RETAIN,
     });
 
     const vectorBucket = new CfnVectorBucket(this, "KnowledgeBaseVectorBucket", {
       vectorBucketName: `portpulse-kb-vectors-${stack.account}`,
     });
+    vectorBucket.applyRemovalPolicy(RemovalPolicy.RETAIN);
     const vectorIndex = new CfnIndex(this, "KnowledgeBaseVectorIndex", {
-      indexName: "portpulse-kb-index",
+      // Bedrock은 청크 원문/내부 메타데이터를 아래 두 키에 저장한다. 이를 filterable로 두면
+      // S3 Vectors의 2KB 제한을 넘어 모든 PDF 인제스천이 실패하므로 반드시 non-filterable로 둔다.
+      indexName: "portpulse-kb-index-v2",
       vectorBucketName: vectorBucket.vectorBucketName,
       dimension: EMBEDDING_DIMENSION,
       dataType: "float32",
       distanceMetric: "cosine",
+      metadataConfiguration: {
+        nonFilterableMetadataKeys: ["AMAZON_BEDROCK_TEXT", "AMAZON_BEDROCK_METADATA"],
+      },
     });
     vectorIndex.addDependency(vectorBucket);
 
@@ -111,8 +115,10 @@ export class PortpulseKnowledgeBase extends Construct {
     docsBucket.grantRead(kbRole);
 
     const kb = new CfnKnowledgeBase(this, "PortPulseKnowledgeBase", {
-      name: "portpulse-knowledge-base",
-      description: "PortPulse 해운 도메인 문서 RAG — 재구축본(원본 재인제스천 필요)",
+      // v1 인덱스에는 Bedrock 내부 메타데이터의 non-filterable 설정이 빠져 인제스천이 전부 실패했다.
+      // StorageConfiguration 변경이 KB 교체로 판정되는 경우에도 기존 이름과 충돌하지 않도록 v2로 구분한다.
+      name: "portpulse-knowledge-base-v2",
+      description: "PortPulse KOBC·DCSA 해운 도메인 문서 RAG",
       roleArn: kbRole.roleArn,
       knowledgeBaseConfiguration: {
         type: "VECTOR",
@@ -123,10 +129,11 @@ export class PortpulseKnowledgeBase extends Construct {
         s3VectorsConfiguration: { vectorBucketArn: vectorBucket.attrVectorBucketArn, indexArn: vectorIndex.attrIndexArn },
       },
     });
+    kb.applyRemovalPolicy(RemovalPolicy.RETAIN);
     kb.addDependency(vectorIndex);
     kb.node.addDependency(kbRole);
 
-    new CfnDataSource(this, "KBDataSource", {
+    const dataSource = new CfnDataSource(this, "KBDataSource", {
       knowledgeBaseId: kb.attrKnowledgeBaseId,
       name: "portpulse-kb-s3-source",
       dataDeletionPolicy: "RETAIN", // 데이터소스 삭제해도 이미 넣은 벡터는 유지(다음 사고 완화)
@@ -143,6 +150,8 @@ export class PortpulseKnowledgeBase extends Construct {
     });
 
     this.knowledgeBaseId = kb.attrKnowledgeBaseId;
+    this.dataSourceId = dataSource.attrDataSourceId;
     this.docsBucket = docsBucket;
+    this.configVersion = "rag-v2-s3vectors-metadata";
   }
 }

@@ -413,11 +413,55 @@ async function loadMoreNews(listId, moreBtnId) {
 // 대화 이력은 서버(Bedrock Agent 세션)가 보관 — 프론트는 sessionId만 들고 다닌다.
 let chatSessionId = null;
 let chatOpened = false;
-function chatAppend(role, text) {
+function safeSourceUrl(url) {
+  try {
+    const parsed = new URL(String(url));
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "";
+  } catch { return ""; }
+}
+function sourceLabel(source) {
+  return [source.title, source.organization, source.publishedAt, source.pageNumber ? `p.${source.pageNumber}` : ""].filter(Boolean).join(" · ");
+}
+function appendCitationMarker(container, source) {
+  const url = safeSourceUrl(source.url);
+  const marker = document.createElement(url ? "a" : "span");
+  marker.className = "chat-cite";
+  marker.textContent = source.pageNumber ? `[${source.id} · p.${source.pageNumber}]` : `[${source.id}]`;
+  marker.title = sourceLabel(source) || "참고 문서";
+  marker.setAttribute("aria-label", marker.title);
+  if (url) {
+    marker.href = url;
+    marker.target = "_blank";
+    marker.rel = "noopener noreferrer";
+    if (source.directDocument) marker.title += " · 문서 열기";
+  }
+  container.appendChild(marker);
+}
+function renderCitedReply(container, text, citations, sources) {
+  const sourceById = new Map((sources || []).map((source) => [source.id, source]));
+  const markersByEnd = new Map();
+  for (const citation of citations || []) {
+    const end = Math.max(0, Math.min(text.length, Number(citation.end) || 0));
+    const ids = markersByEnd.get(end) || [];
+    for (const id of citation.sourceIds || []) if (!ids.includes(id) && sourceById.has(id)) ids.push(id);
+    markersByEnd.set(end, ids);
+  }
+
+  let cursor = 0;
+  for (const [end, ids] of [...markersByEnd.entries()].sort((a, b) => a[0] - b[0])) {
+    if (end < cursor) continue;
+    container.appendChild(document.createTextNode(text.slice(cursor, end)));
+    for (const id of ids) appendCitationMarker(container, sourceById.get(id));
+    cursor = end;
+  }
+  container.appendChild(document.createTextNode(text.slice(cursor)));
+}
+function chatAppend(role, text, citations = [], sources = []) {
   const body = document.getElementById("chatBody");
   const div = document.createElement("div");
   div.className = `chat-msg ${role === "user" ? "user" : "bot"}`;
-  div.textContent = text;
+  if (role === "bot" && citations.length) renderCitedReply(div, text, citations, sources);
+  else div.textContent = text;
   body.appendChild(div);
   body.scrollTop = body.scrollHeight;
   return div;
@@ -427,7 +471,7 @@ function toggleChat(open) {
   panel.classList.toggle("open", open);
   if (open && !chatOpened) {
     chatOpened = true;
-    chatAppend("bot", "안녕하세요! 오늘 시장 상황이나 선적 현황에 대해 물어보세요.\n(참고: 아직 회사 실제 문서·계약서는 연결되어 있지 않아요 — 지금은 대시보드에 보이는 데이터로만 답해요.)");
+    chatAppend("bot", "안녕하세요! 오늘 시장 상황, 선적 현황, KOBC 해운 보고서나 DCSA 표준에 대해 물어보세요.\n(회사 내부 계약서·사내 문서는 아직 연결되어 있지 않아요.)");
     document.getElementById("chatInput").focus();
   }
 }
@@ -450,7 +494,7 @@ async function sendChatMessage() {
     })).json();
     pending.remove();
     if (data.reply) {
-      chatAppend("bot", data.reply);
+      chatAppend("bot", data.reply, data.citations || [], data.sources || []);
       if (data.sessionId) chatSessionId = data.sessionId;
     } else {
       chatAppend("bot", `오류: ${data.error || "응답을 받지 못했습니다"}`);
